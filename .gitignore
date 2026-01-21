@@ -1,0 +1,32 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.idea
+.env
+.env.production
+.pep8
+.coverage
+pytest-cobertura.xml
+test.ipynb
+dump.rdb
+tmp
+.~lock.*
+sql
+.ropeproject
+test.py
+scratch.py
+settings.json
+.vscode
+celerybeat-schedule
+*.log
+graphql.config.yml
+backups
+.DS_Store
+*.db

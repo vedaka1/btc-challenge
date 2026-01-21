@@ -1,0 +1,45 @@
+from punq import Container, Scope
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from btc_challenge.push_ups.adapters.sqlite.repository import PushUpRepository
+from btc_challenge.push_ups.application.interactors.create import CreatePushUpInteractor
+from btc_challenge.push_ups.application.interactors.get_all_users_stats import GetAllUsersStatsInteractor
+from btc_challenge.push_ups.application.interactors.get_daily_stats import GetDailyStatsInteractor
+from btc_challenge.push_ups.domain.repository import IPushUpRepository
+from btc_challenge.shared.adapters.minio.storage import init_minio_storage
+from btc_challenge.shared.adapters.sqlite.commiter import Commiter
+from btc_challenge.shared.adapters.sqlite.session import get_async_sessionmaker
+from btc_challenge.shared.application.commiter import ICommiter
+from btc_challenge.shared.storage import IS3Storage
+from btc_challenge.stored_object.adapters.sqlite.repository import StoredObjectRepository
+from btc_challenge.stored_object.domain.repository import IStoredObjectRepository
+from btc_challenge.users.adapters.sqlite.repository import UserRepository
+from btc_challenge.users.application.interactors.create import CreateUserInteractor
+from btc_challenge.users.domain.repository import IUserRepository
+
+
+def build_container() -> Container:
+    container = Container()
+
+    # Infrastructure - singletons
+    container.register(async_sessionmaker[AsyncSession], instance=get_async_sessionmaker(), scope=Scope.singleton)
+    container.register(IS3Storage, instance=init_minio_storage(), scope=Scope.singleton)
+
+    # Repositories - transient
+    container.register(ICommiter, Commiter)
+    container.register(IUserRepository, UserRepository)
+    container.register(IPushUpRepository, PushUpRepository)
+    container.register(IStoredObjectRepository, StoredObjectRepository)
+
+    # Interactors - transient
+    container.register(CreateUserInteractor)
+    container.register(CreatePushUpInteractor)
+    container.register(GetDailyStatsInteractor)
+    container.register(GetAllUsersStatsInteractor)
+
+    return container
+
+
+def build_request_container(container: Container, session: AsyncSession) -> Container:
+    container.register(AsyncSession, instance=session)
+    return container

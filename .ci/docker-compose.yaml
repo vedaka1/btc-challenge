@@ -1,0 +1,45 @@
+services:
+  btc-challenge:
+    profiles: ['dev', 'prod']
+    build: 
+      context: .
+      dockerfile: .ci/Dockerfile
+    volumes:
+      - ./btc_challenge:/app/btc_challenge
+      - ./app.db:/app/app.db
+    env_file:
+      - .env.production
+    networks:
+      - internal
+      - default
+
+  minio:
+    image: minio/minio
+    volumes:
+      - minio-data:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    ports:
+      - 9000:9000
+      - 9001:9001
+    networks:
+      - internal
+      - default
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+    
+volumes:
+  minio-data:
+
+networks:
+  internal:
+    driver: bridge
+    internal: true
+  default:
+    driver: bridge

@@ -1,0 +1,26 @@
+[project]
+name = "btc-challenge"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiogram>=3.24.0",
+    "aiosqlite>=0.22.1",
+    "alembic>=1.18.1",
+    "greenlet>=3.3.0",
+    "minio>=7.2.20",
+    "punq>=0.7.0",
+    "sqlalchemy>=2.0.45",
+]
+
+[dependency-groups]
+lint = [
+    "mypy>=1.19.1",
+]
+
+[tool.mypy]
+pretty = true
+files = ['./btc_challenge/']
+explicit_package_bases = true
+disable_error_code = ["import-untyped"]

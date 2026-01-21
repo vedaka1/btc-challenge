@@ -1,6 +1,5 @@
 services:
   btc-challenge:
-    profiles: ['dev', 'prod']
     build: 
       context: .
       dockerfile: .ci/Dockerfile

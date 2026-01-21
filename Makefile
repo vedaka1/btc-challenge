@@ -8,8 +8,15 @@ local:
 	PYTHONPATH=. .ci/entrypoint.sh
 
 dev:
-	$(DC_DEV) up -d
+	$(DC_DEV) up -d --build $(cont)
 
 restart:
 	$(DC_DEV) restart $(cont)
+
+logs:
+	$(DC_DEV) logs $(cont) --tail=500
+
+down:
+	$(DC_DEV) down
+
 .PHONY: local

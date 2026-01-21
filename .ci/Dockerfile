@@ -1,4 +1,4 @@
-FROM python:3.11.13-slim-bullseye
+FROM python:3.12.12-trixie
 COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /uvx /bin/
 ENV UV_PROJECT_ENVIRONMENT=/usr/local \
     UV_LINK_MODE=copy \

@@ -8,6 +8,7 @@ class User:
     oid: UUID
     telegram_id: int
     username: str
+    is_verified: bool
     created_at: datetime
     updated_at: datetime
 
@@ -18,6 +19,7 @@ class User:
             oid=uuid4(),
             telegram_id=telegram_id,
             username=username,
+            is_verified=False,
             created_at=now,
             updated_at=now,
         )

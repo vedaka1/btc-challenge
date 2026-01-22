@@ -15,7 +15,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
     
 COPY btc_challenge/ ./btc_challenge
-COPY .env.production ./
+COPY .env.production alembic.ini ./
+COPY alembic/ ./alembic/
 COPY ./.ci/entrypoint.sh /app/.ci/entrypoint.sh
 
 RUN --mount=type=cache,target=/root/.cache/uv \

@@ -1,8 +1,11 @@
+import json
+
 from btc_challenge.environment import get_env_var
 
 
 class TelegramConfig:
     bot_token: str = get_env_var(key="BOT_TOKEN", cast_to=str)
+    admin_ids: list[int] = get_env_var(key="ADMIN_IDS", cast_to=json.loads, default=[])
 
 
 class SqliteConfig:

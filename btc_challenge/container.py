@@ -15,6 +15,8 @@ from btc_challenge.stored_object.adapters.sqlite.repository import StoredObjectR
 from btc_challenge.stored_object.domain.repository import IStoredObjectRepository
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 from btc_challenge.users.application.interactors.create import CreateUserInteractor
+from btc_challenge.users.application.interactors.get_one import GetUserByTelegramIdInteractor
+from btc_challenge.users.application.interactors.verify import VerifyUserInteractor
 from btc_challenge.users.domain.repository import IUserRepository
 
 
@@ -33,9 +35,11 @@ def build_container() -> Container:
 
     # Interactors - transient
     container.register(CreateUserInteractor)
+    container.register(VerifyUserInteractor)
     container.register(CreatePushUpInteractor)
     container.register(GetDailyStatsInteractor)
     container.register(GetAllUsersStatsInteractor)
+    container.register(GetUserByTelegramIdInteractor)
 
     return container
 

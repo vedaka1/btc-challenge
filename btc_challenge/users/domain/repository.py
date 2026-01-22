@@ -10,6 +10,9 @@ class IUserRepository(ABC):
     async def create(self, user: User) -> None: ...
 
     @abstractmethod
+    async def update(self, user: User) -> None: ...
+
+    @abstractmethod
     async def get_by_oid(self, oid: UUID) -> User | None: ...
 
     @abstractmethod

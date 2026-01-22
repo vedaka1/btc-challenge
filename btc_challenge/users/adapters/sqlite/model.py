@@ -12,5 +12,6 @@ class UserORM(BaseORM):
     oid: Mapped[UUID] = mapped_column(primary_key=True)
     telegram_id: Mapped[int] = mapped_column(unique=True)
     username: Mapped[str] = mapped_column(unique=True)
+    is_verified: Mapped[bool]
     created_at: Mapped[datetime]
     updated_at: Mapped[datetime]

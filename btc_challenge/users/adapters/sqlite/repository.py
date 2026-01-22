@@ -19,6 +19,10 @@ class UserRepository(IUserRepository):
         orm = self._mapper.to_model(user)
         self._session.add(orm)
 
+    async def update(self, user: User) -> None:
+        orm = self._mapper.to_model(user)
+        await self._session.merge(orm)
+
     async def _get_by(self, query: Select[tuple[UserORM]]) -> User | None:
         cursor = await self._session.execute(query)
         row = cursor.scalar_one_or_none()

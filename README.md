@@ -8,7 +8,7 @@ Set up .env variables:
 BOT_TOKEN=
 DATABASE_PATH=./app.db
 
-MINIO_HOST=localhost:9000
+MINIO_HOST=localhost:9000 # or minio:9000 for docker compose
 MINIO_BUCKET_NAME=btc
 MINIO_ACCESS_KEY=
 MINIO_SECRET_KEY=

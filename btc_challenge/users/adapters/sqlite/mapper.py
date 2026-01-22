@@ -9,6 +9,7 @@ class SqliteUserMapper:
             oid=user_orm.oid,
             telegram_id=user_orm.telegram_id,
             username=user_orm.username,
+            is_verified=user_orm.is_verified,
             created_at=user_orm.created_at,
             updated_at=user_orm.updated_at,
         )
@@ -19,6 +20,7 @@ class SqliteUserMapper:
             oid=user.oid,
             telegram_id=user.telegram_id,
             username=user.username,
+            is_verified=user.is_verified,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )

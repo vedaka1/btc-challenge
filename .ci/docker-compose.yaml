@@ -6,6 +6,8 @@ services:
     volumes:
       - ./btc_challenge:/app/btc_challenge
       - ./app.db:/app/app.db
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
     env_file:
       - .env.production
     networks:

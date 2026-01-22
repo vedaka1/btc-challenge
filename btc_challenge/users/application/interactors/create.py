@@ -10,7 +10,8 @@ class CreateUserInteractor:
     user_repository: IUserRepository
     commiter: ICommiter
 
-    async def execute(self, user_id: int, username: str) -> None:
+    async def execute(self, user_id: int, username: str) -> User:
         user = User.create(telegram_id=user_id, username=username)
         await self.user_repository.create(user)
         await self.commiter.commit()
+        return user

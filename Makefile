@@ -19,4 +19,7 @@ logs:
 down:
 	$(DC_DEV) down
 
+shell:
+	$(DC_DEV) exec -it btc-challenge bash
+
 .PHONY: local

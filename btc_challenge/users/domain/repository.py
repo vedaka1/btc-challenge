@@ -21,6 +21,8 @@ class IUserRepository(ABC):
     @abstractmethod
     async def get_many(
         self,
+        oids: list[UUID] | None = None,
+        is_verified: bool | None = None,
         begin_created_at: datetime | None = None,
         end_created_at: datetime | None = None,
         limit: int | None = None,

@@ -1,9 +1,17 @@
 from punq import Container, Scope
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from btc_challenge.events.adapters.sqlite.repository import EventRepository
+from btc_challenge.events.application.interactors.create import CreateEventInteractor
+from btc_challenge.events.application.interactors.get_participants import GetEventParticipantsInteractor
+from btc_challenge.events.application.interactors.join import JoinEventInteractor
+from btc_challenge.events.domain.repository import IEventRepository
 from btc_challenge.push_ups.adapters.sqlite.repository import PushUpRepository
 from btc_challenge.push_ups.application.interactors.create import CreatePushUpInteractor
 from btc_challenge.push_ups.application.interactors.get_all_users_stats import GetAllUsersStatsInteractor
+from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date import (
+    GetAllUsersStatsByDateInteractor,
+)
 from btc_challenge.push_ups.application.interactors.get_daily_stats import GetDailyStatsInteractor
 from btc_challenge.push_ups.domain.repository import IPushUpRepository
 from btc_challenge.shared.adapters.minio.storage import init_minio_storage
@@ -32,6 +40,7 @@ def build_container() -> Container:
     container.register(IUserRepository, UserRepository)
     container.register(IPushUpRepository, PushUpRepository)
     container.register(IStoredObjectRepository, StoredObjectRepository)
+    container.register(IEventRepository, EventRepository)
 
     # Interactors - transient
     container.register(CreateUserInteractor)
@@ -39,7 +48,11 @@ def build_container() -> Container:
     container.register(CreatePushUpInteractor)
     container.register(GetDailyStatsInteractor)
     container.register(GetAllUsersStatsInteractor)
+    container.register(GetAllUsersStatsByDateInteractor)
     container.register(GetUserByTelegramIdInteractor)
+    container.register(CreateEventInteractor)
+    container.register(JoinEventInteractor)
+    container.register(GetEventParticipantsInteractor)
 
     return container
 

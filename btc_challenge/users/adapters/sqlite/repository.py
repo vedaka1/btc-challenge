@@ -38,12 +38,20 @@ class UserRepository(IUserRepository):
 
     async def get_many(
         self,
+        oids: list[UUID] | None = None,
+        is_verified: bool | None = None,
         begin_created_at: datetime | None = None,
         end_created_at: datetime | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[User]:
         query = select(UserORM)
+        if oids is not None:
+            if not oids:
+                return []
+            query = query.where(UserORM.oid.in_(oids))
+        if is_verified is not None:
+            query = query.where(UserORM.is_verified == is_verified)
         if begin_created_at:
             query = query.where(UserORM.created_at >= begin_created_at)
         if end_created_at:

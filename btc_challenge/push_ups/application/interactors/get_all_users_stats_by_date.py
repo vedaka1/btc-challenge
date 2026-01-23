@@ -2,8 +2,6 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from btc_challenge.push_ups.domain.repository import IPushUpRepository
-from btc_challenge.shared.storage import IS3Storage
-from btc_challenge.stored_object.domain.repository import IStoredObjectRepository
 from btc_challenge.users.domain.repository import IUserRepository
 
 
@@ -12,15 +10,13 @@ class UserDateStats:
     username: str
     total_count: int
     push_ups_count: int
-    videos: list[tuple[int, bytes]]  # (count, video_bytes)
+    videos: list[tuple[int, str, bool]]  # (count, file_id, is_video_note)
 
 
 @dataclass
 class GetAllUsersStatsByDateInteractor:
     push_up_repository: IPushUpRepository
-    stored_object_repository: IStoredObjectRepository
     user_repository: IUserRepository
-    storage: IS3Storage
 
     async def execute(self, date: datetime) -> list[UserDateStats]:
         # Получаем начало и конец выбранного дня
@@ -41,15 +37,7 @@ class GetAllUsersStatsByDateInteractor:
 
             if push_ups:  # Показываем только тех, у кого есть подходы
                 total_count = sum(p.count for p in push_ups)
-                videos = []
-
-                # Получаем видео для каждого подхода
-                for push_up in push_ups:
-                    stored_object = await self.stored_object_repository.get_by_oid(push_up.video_oid)
-                    if stored_object:
-                        video_bytes = await self.storage.get_bytes(stored_object.storage_key)
-                        if video_bytes:
-                            videos.append((push_up.count, video_bytes))
+                videos = [(p.count, p.telegram_file_id, p.is_video_note) for p in push_ups]
 
                 stats_list.append(
                     UserDateStats(

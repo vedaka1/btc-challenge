@@ -12,7 +12,8 @@ class PushUpORM(BaseORM):
 
     oid: Mapped[UUID] = mapped_column(primary_key=True)
     user_oid: Mapped[UUID] = mapped_column(ForeignKey("users.oid", ondelete="CASCADE"), index=True)
-    video_oid: Mapped[UUID] = mapped_column(ForeignKey("stored_object.oid", ondelete="CASCADE"))
+    telegram_file_id: Mapped[str]
+    is_video_note: Mapped[bool]
     count: Mapped[int]
     created_at: Mapped[datetime]
     updated_at: Mapped[datetime]

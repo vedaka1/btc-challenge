@@ -9,6 +9,7 @@ from btc_challenge.container import build_container
 from btc_challenge.events.presentation.router import events_router
 from btc_challenge.push_ups.presentation.router import logger, push_ups_router
 from btc_challenge.shared.adapters.sqlite.session import get_async_engine
+from btc_challenge.shared.presentation.commands import Commands
 from btc_challenge.shared.presentation.middlewares.container import ContainerMiddleware
 from btc_challenge.shared.presentation.middlewares.user import UserMiddleware
 from btc_challenge.tasks import init_tasks
@@ -42,13 +43,14 @@ async def main() -> None:
     bot = Bot(token=AppConfig.telegram.bot_token)
     await bot.set_my_commands(
         commands=[
-            BotCommand(command="start", description="Начать работу с ботом"),
-            BotCommand(command="add", description="Добавить отжимания"),
-            BotCommand(command="info", description="Моя статистика за сегодня"),
-            BotCommand(command="stats", description="Рейтинг всех пользователей"),
-            BotCommand(command="history", description="Посмотреть историю по дням"),
-            BotCommand(command="cancel", description="Отменить текущее действие"),
-            BotCommand(command="confirmation", description="Верификация пользователя"),
+            BotCommand(command=Commands.START, description="Начать работу с ботом"),
+            BotCommand(command=Commands.ADD, description="Добавить отжимания"),
+            BotCommand(command=Commands.INFO, description="Моя статистика за сегодня"),
+            BotCommand(command=Commands.STATS, description="Рейтинг всех пользователей"),
+            BotCommand(command=Commands.HISTORY, description="Посмотреть историю по дням"),
+            BotCommand(command=Commands.CANCEL, description="Отменить текущее действие"),
+            BotCommand(command=Commands.ACTIVE_EVENTS, description="Посмотреть активные ивенты"),
+            BotCommand(command=Commands.CONFIRMATION, description="Верификация пользователя"),
         ],
     )
     dp = Dispatcher()
@@ -56,13 +58,15 @@ async def main() -> None:
     dp["container"] = container
     init_routers(dp)
     init_tasks(bot)
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by KeyboardInterrupt")
+        await dp.stop_polling()
+        engine = get_async_engine()
+        await engine.dispose()
+        logger.info("Bot stopped")
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        engine = get_async_engine()
-        engine.dispose()
-        logger.info("Bot stopped")
+    asyncio.run(main())

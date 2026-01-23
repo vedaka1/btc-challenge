@@ -3,13 +3,14 @@ from punq import Container
 
 from btc_challenge.config import AppConfig
 from btc_challenge.shared.errors import ObjectNotFoundError
+from btc_challenge.shared.presentation.commands import Commands
 from btc_challenge.users.application.interactors.verify import VerifyUserInteractor
 from btc_challenge.users.domain.repository import IUserRepository
 
 verification_router = Router()
 
 
-@verification_router.message(filters.Command("confirmation"))
+@verification_router.message(filters.Command(Commands.CONFIRMATION))
 async def cmd_confirmation(message: types.Message, bot: Bot, container: Container) -> None:
     if not message.from_user:
         return
@@ -22,7 +23,7 @@ async def cmd_confirmation(message: types.Message, bot: Bot, container: Containe
     user = await user_repository.get_by_telegram_id(user_id)
 
     if not user:
-        await message.answer("Сначала нажми /start")
+        await message.answer(f"Сначала нажми /{Commands.START}")
         return
     if user.is_verified:
         await message.answer("Ты уже верифицирован!")

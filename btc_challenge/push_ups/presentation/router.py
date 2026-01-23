@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timedelta
-from io import BytesIO
 
 from aiogram import Bot, F, Router, filters, types
 from aiogram.fsm.context import FSMContext
@@ -18,6 +17,7 @@ from btc_challenge.push_ups.presentation.states import PushUpStates
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
 from btc_challenge.shared.errors import ObjectNotFoundError
 from btc_challenge.shared.presentation.checks import require_verified
+from btc_challenge.shared.presentation.commands import Commands
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 from btc_challenge.users.domain.entity import User
 
@@ -25,7 +25,18 @@ push_ups_router = Router()
 logger = logging.getLogger(__name__)
 
 
-@push_ups_router.message(filters.Command("add", "push_up"))
+@push_ups_router.message(filters.Command(Commands.CANCEL))
+async def cmd_cancel(message: types.Message, state: FSMContext) -> None:
+    current_state = await state.get_state()
+    if current_state is None:
+        await message.answer("Нечего отменять")
+        return
+
+    await state.clear()
+    await message.answer("Отменил")
+
+
+@push_ups_router.message(filters.Command(Commands.ADD, Commands.PUSH_UP))
 async def cmd_add_push_up(message: types.Message, state: FSMContext, user: User | None) -> None:
     if not await require_verified(message, user):
         return
@@ -38,7 +49,7 @@ async def cmd_add_push_up(message: types.Message, state: FSMContext, user: User 
 
         if not active_events:
             await message.answer(
-                "❌ Ты не участвуешь ни в одном активном ивенте!\n\nИспользуй /active_events чтобы посмотреть доступные ивенты.",
+                f"❌ Ты не участвуешь ни в одном активном ивенте!\n\nИспользуй /{Commands.ACTIVE_EVENTS} чтобы посмотреть доступные ивенты.",
             )
             return
 
@@ -115,36 +126,24 @@ async def process_video(
                 )
                 return
 
-    # Определяем тип файла и получаем объект
+    # Определяем тип файла и получаем file_id
     file: types.Video | types.VideoNote | None = None
     is_video_note = False
     if message.video:
         file = message.video
-        file_name = file.file_name or f"video_{file.file_id}.mp4"
-        extension = ".mp4"
+        is_video_note = False
     elif message.video_note:
         file = message.video_note
-        file_name = f"video_note_{file.file_id}.mp4"
-        extension = ".mp4"
         is_video_note = True
     else:
         return
 
-    # Скачиваем файл из Telegram
-    file_info = await bot.get_file(file.file_id)
-    file_bytes = BytesIO()
-    if not file_info.file_path:
-        return
-    await bot.download_file(file_info.file_path, file_bytes)
-    file_data = file_bytes.getvalue()
-
-    # Сохраняем в БД и MinIO
+    # Сохраняем в БД только file_id
     interactor = container.resolve(CreatePushUpInteractor)
     await interactor.execute(
         telegram_id=user_id,
-        file_data=file_data,
-        file_name=file_name,
-        extension=extension,
+        telegram_file_id=file.file_id,
+        is_video_note=is_video_note,
         count=count,
     )
 
@@ -166,18 +165,7 @@ async def wrong_video_type(message: types.Message) -> None:
     await message.answer("Отправь видео или кружок с подтверждением")
 
 
-@push_ups_router.message(filters.Command("cancel"))
-async def cmd_cancel(message: types.Message, state: FSMContext) -> None:
-    current_state = await state.get_state()
-    if current_state is None:
-        await message.answer("Нечего отменять")
-        return
-
-    await state.clear()
-    await message.answer("Отменил")
-
-
-@push_ups_router.message(filters.Command("info"))
+@push_ups_router.message(filters.Command(Commands.INFO))
 async def cmd_info(message: types.Message, container: Container, user: User | None) -> None:
     if not await require_verified(message, user):
         return
@@ -187,11 +175,11 @@ async def cmd_info(message: types.Message, container: Container, user: User | No
 
     user_id = message.from_user.id
 
-    interactor = container.resolve(GetDailyStatsInteractor)
+    interactor: GetDailyStatsInteractor = container.resolve(GetDailyStatsInteractor)
     try:
         stats = await interactor.execute(telegram_id=user_id)
     except ObjectNotFoundError:
-        await message.answer("Сначала нажми /start")
+        await message.answer(f"Сначала нажми /{Commands.START}")
         return
 
     if stats.push_ups_count == 0:
@@ -203,15 +191,18 @@ async def cmd_info(message: types.Message, container: Container, user: User | No
     await message.answer(stats_text)
 
     # Отправляем видео
-    for count, video_bytes in stats.videos:
-        video_file = types.BufferedInputFile(video_bytes, filename="video.mp4")
-        await message.answer_video(
-            video=video_file,
-            caption=f"Подход: {count} отжиманий",
-        )
+    for count, file_id, is_video_note in stats.videos:
+        if is_video_note:
+            await message.answer_video_note(video_note=file_id)
+            await message.answer(f"Подход: {count} отжиманий")
+        else:
+            await message.answer_video(
+                video=file_id,
+                caption=f"Подход: {count} отжиманий",
+            )
 
 
-@push_ups_router.message(filters.Command("stats", "leaderboard"))
+@push_ups_router.message(filters.Command(Commands.STATS, Commands.LEADERBOARD))
 async def cmd_stats(message: types.Message, container: Container) -> None:
     interactor: GetAllUsersStatsInteractor = container.resolve(GetAllUsersStatsInteractor)
     stats_list = await interactor.execute()
@@ -230,7 +221,7 @@ async def cmd_stats(message: types.Message, container: Container) -> None:
     await message.answer(stats_text)
 
 
-@push_ups_router.message(filters.Command("history"))
+@push_ups_router.message(filters.Command(Commands.HISTORY))
 async def cmd_history(message: types.Message, user: User | None) -> None:
     if not await require_verified(message, user):
         return
@@ -338,12 +329,15 @@ async def _show_stats_for_date(
     for stats in stats_list:
         if stats.videos:
             await message.answer(f"📹 Видео @{stats.username}:")
-            for count, video_bytes in stats.videos:
-                video_file = types.BufferedInputFile(video_bytes, filename="video.mp4")
-                await message.answer_video(
-                    video=video_file,
-                    caption=f"@{stats.username}: {count} отжиманий",
-                )
+            for count, file_id, is_video_note in stats.videos:
+                if is_video_note:
+                    await message.answer_video_note(video_note=file_id)
+                    await message.answer(f"@{stats.username}: {count} отжиманий")
+                else:
+                    await message.answer_video(
+                        video=file_id,
+                        caption=f"@{stats.username}: {count} отжиманий",
+                    )
 
 
 async def _notify_event_participants(

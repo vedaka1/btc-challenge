@@ -2,12 +2,13 @@ from aiogram import Router, filters, types
 from punq import Container
 
 from btc_challenge.shared.errors import ObjectAlreadyExistsError
+from btc_challenge.shared.presentation.commands import Commands
 from btc_challenge.users.application.interactors.create import CreateUserInteractor
 
 user_router = Router()
 
 
-@user_router.message(filters.Command("start"))
+@user_router.message(filters.Command(Commands.START))
 async def cmd_start(message: types.Message, container: Container) -> None:
     if not message.from_user:
         return
@@ -29,14 +30,13 @@ async def cmd_start(message: types.Message, container: Container) -> None:
     welcome_text = (
         "👋 Добро пожаловать в BTC Challenge!\n\n"
         "🔐 Для участия в ивентах необходимо пройти верификацию.\n"
-        "Используй команду /confirmation чтобы пройти верификацию.\n\n"
+        f"Используй команду /{Commands.CONFIRMATION} чтобы пройти верификацию.\n\n"
         "📋 Доступные команды:\n"
-        "/confirmation - Получить ссылку для верификации\n"
-        # "/events - Посмотреть доступные ивенты\n"
-        "/active_events - Активные ивенты и участники\n"
-        "/add - Добавить отжимания (требуется участие в ивенте)\n"
-        "/stats - Статистика за сегодня\n"
-        "/history - История по дням"
+        f"/{Commands.CONFIRMATION} - Получить ссылку для верификации\n"
+        f"/{Commands.ACTIVE_EVENTS} - Активные ивенты и участники\n"
+        f"/{Commands.ADD} - Добавить отжимания (требуется участие в ивенте)\n"
+        f"/{Commands.STATS} - Статистика за сегодня\n"
+        f"/{Commands.HISTORY} - История по дням"
     )
 
     if is_new_user:

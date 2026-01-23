@@ -13,13 +13,14 @@ from btc_challenge.events.domain.entity import Event
 from btc_challenge.events.presentation.states import CreateEventStates
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
 from btc_challenge.shared.presentation.checks import require_admin, require_verified
+from btc_challenge.shared.presentation.commands import Commands
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 from btc_challenge.users.domain.entity import User
 
 events_router = Router()
 
 
-@events_router.message(filters.Command("create_event"))
+@events_router.message(filters.Command(Commands.CREATE_EVENT))
 async def cmd_create_event(message: types.Message, state: FSMContext, user: User | None) -> None:
     if not await require_admin(message, user):
         return
@@ -181,12 +182,12 @@ async def handle_join_event(
     from uuid import UUID
 
     if not user:
-        await callback.answer("Сначала нажми /start", show_alert=True)
+        await callback.answer(f"Сначала нажми /{Commands.START}", show_alert=True)
         return
 
     if not user.is_verified:
         await callback.answer(
-            "Ты не верифицирован! Отправь команду /confirmation для верификации.",
+            f"Ты не верифицирован! Отправь команду /{Commands.CONFIRMATION} для верификации.",
             show_alert=True,
         )
         return
@@ -205,7 +206,7 @@ async def handle_join_event(
         await callback.answer(str(e), show_alert=True)
 
 
-@events_router.message(filters.Command("active_events"))
+@events_router.message(filters.Command(Commands.ACTIVE_EVENTS))
 async def cmd_active_events(message: types.Message, container: Container, user: User | None) -> None:
     if not await require_verified(message, user):
         return

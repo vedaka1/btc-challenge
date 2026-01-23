@@ -95,8 +95,9 @@ class EventRepository(IEventRepository):
         query = (
             select(EventORM)
             .where(
-                EventORM.start_at >= now,
-                EventORM.start_at <= datetime.fromtimestamp(now.timestamp() + tolerance_seconds),
+                EventORM.start_at <= now,  # Event has already started or starting now
+                EventORM.start_at
+                >= datetime.fromtimestamp(now.timestamp() - tolerance_seconds),  # But not too long ago
                 EventORM.start_notification_sent == False,
             )
             .order_by(EventORM.start_at)

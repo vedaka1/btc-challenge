@@ -7,6 +7,7 @@ services:
       - ./btc_challenge:/app/btc_challenge
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
+      - db-data:/app/app.db
     env_file:
       - .env.production
     networks:
@@ -36,6 +37,7 @@ services:
     
 volumes:
   minio-data:
+  db-data:
 
 networks:
   internal:

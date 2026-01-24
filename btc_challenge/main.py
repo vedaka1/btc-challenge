@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
+from aiogram.fsm.strategy import FSMStrategy
 from aiogram.types import BotCommand
 
 from btc_challenge.chats.presentation.router import chats_router
@@ -56,7 +57,7 @@ async def main() -> None:
             BotCommand(command=Commands.CONFIRMATION, description="Верификация пользователя"),
         ],
     )
-    dp = Dispatcher()
+    dp = Dispatcher(fsm_strategy=FSMStrategy.USER_IN_CHAT)
     container = build_container()
     dp["container"] = container
     init_routers(dp)

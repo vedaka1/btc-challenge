@@ -22,4 +22,7 @@ down:
 shell:
 	$(DC_DEV) exec -it btc-challenge bash
 
+sqlite:
+	$(DC_DEV) exec -it btc-challenge sqlite3 app.db
+
 .PHONY: local

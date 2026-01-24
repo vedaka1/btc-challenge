@@ -6,6 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from punq import Container
 
+from btc_challenge.chats.adapters.sqlite.repository import ChatRepository
 from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.push_ups.application.interactors.create import CreatePushUpInteractor
 from btc_challenge.push_ups.application.interactors.get_all_users_stats import GetAllUsersStatsInteractor
@@ -18,7 +19,6 @@ from btc_challenge.shared.adapters.sqlite.session import get_async_session
 from btc_challenge.shared.errors import ObjectNotFoundError
 from btc_challenge.shared.presentation.checks import require_verified
 from btc_challenge.shared.presentation.commands import Commands
-from btc_challenge.users.adapters.sqlite.repository import UserRepository
 from btc_challenge.users.domain.entity import User
 
 push_ups_router = Router()
@@ -39,6 +39,11 @@ async def cmd_cancel(message: types.Message, state: FSMContext) -> None:
 @push_ups_router.message(filters.Command(Commands.ADD, Commands.PUSH_UP))
 async def cmd_add_push_up(message: types.Message, state: FSMContext, user: User | None) -> None:
     if not await require_verified(message, user):
+        return
+
+    # Запрещаем создание отжиманий в группах
+    if message.chat.type in ("group", "supergroup"):
+        await message.answer("❌ Добавление отжиманий доступно только в личных сообщениях с ботом")
         return
 
     # Проверяем участие в активных событиях
@@ -345,27 +350,25 @@ async def _notify_event_participants(
     file_id: str,
     is_video_note: bool,
 ) -> None:
-    """Send notification to event participants when user completes daily pushups."""
+    """Send notification to group chats when user completes daily pushups."""
     try:
         async with get_async_session() as session:
             event_repository = EventRepository(session)
-            user_repository = UserRepository(session)
+            chat_repository = ChatRepository(session)
 
             now = datetime.now()
             # Get active events where user is a participant
             active_events = await event_repository.get_active_events_by_participant(user.oid, now)
 
+            if not active_events:
+                return
+
+            # Get active group chats
+            active_chats = await chat_repository.get_many(is_active=True)
+            if not active_chats:
+                return
+
             for event in active_events:
-                if not event.participant_oids:
-                    continue
-
-                # Get all participants except the user who completed pushups
-                other_participant_oids = [oid for oid in event.participant_oids if oid != user.oid]
-                if not other_participant_oids:
-                    continue
-
-                participants = await user_repository.get_many(oids=other_participant_oids)
-
                 notification_text = (
                     f"🎉 @{user.username} выполнил дневную задачу!\n\n"
                     f"📌 Ивент: {event.title}\n"
@@ -373,29 +376,29 @@ async def _notify_event_participants(
                     f"💪 Отжиманий: {count}"
                 )
 
-                # Send to all other participants
-                for participant in participants:
-                    logger.info(f"Sending notification to {participant.username} with id {participant.telegram_id}")
+                # Send to all active group chats
+                for chat in active_chats:
+                    logger.info(f"Sending notification to chat {chat.title} with id {chat.telegram_chat_id}")
                     try:
                         if is_video_note:
                             await bot.send_video_note(
-                                chat_id=participant.telegram_id,
+                                chat_id=chat.telegram_chat_id,
                                 video_note=file_id,
                             )
                             await bot.send_message(
-                                chat_id=participant.telegram_id,
+                                chat_id=chat.telegram_chat_id,
                                 text=notification_text,
                             )
                         else:
                             await bot.send_video(
-                                chat_id=participant.telegram_id,
+                                chat_id=chat.telegram_chat_id,
                                 video=file_id,
                                 caption=notification_text,
                             )
-                    except Exception:
-                        # User might have blocked the bot
-                        pass
+                    except Exception as e:
+                        # Group might have removed the bot or bot doesn't have permissions
+                        logger.warning(f"Failed to send notification to chat {chat.telegram_chat_id}: {e}")
 
-    except Exception:
+    except Exception as e:
         # Don't fail the main flow if notifications fail
-        pass
+        logger.error(f"Failed to send notifications: {e}")

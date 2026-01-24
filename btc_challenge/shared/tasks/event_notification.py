@@ -11,13 +11,14 @@ from btc_challenge.shared.adapters.sqlite.session import get_async_session
 from btc_challenge.shared.tasks.event_daily_notification import (
     send_event_daily_notification_to_participant,
 )
+from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 
 logger = logging.getLogger(__name__)
 
 
 async def send_pre_event_reminders(bot: Bot, event: Event) -> None:
-    """Send reminder 1 hour before event to users who haven't joined yet."""
+    """Send reminder 1 hour before event to users who haven't joined yet and to all groups."""
     async with get_async_session() as session:
         event_repository = EventRepository(session)
         user_repository = UserRepository(session)
@@ -35,8 +36,7 @@ async def send_pre_event_reminders(bot: Bot, event: Event) -> None:
             f"⏰ Напоминание: ивент скоро начнется!\n\n"
             f"📌 {event.title}\n"
             f"📝 {event.description}\n"
-            f"🕐 Начало: {event.start_at.strftime('%d.%m.%Y %H:%M')}\n"
-            f"🕐 Конец: {event.end_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+            f"🕐 Начало: {event.start_at.strftime('%d.%m.%Y %H:%M')}\n\n"
             f"Успей записаться, до начала остался 1 час!"
         )
 
@@ -53,6 +53,9 @@ async def send_pre_event_reminders(bot: Bot, event: Event) -> None:
                     # User might have blocked the bot
                     pass
 
+        # Send to active chats (groups)
+        await send_notification_to_groups(bot, session, reminder_text, keyboard)
+
         # Mark reminder notification as sent
         event.reminder_notification_sent = True
         await event_repository.save(event)
@@ -60,29 +63,24 @@ async def send_pre_event_reminders(bot: Bot, event: Event) -> None:
 
 
 async def send_start_notification(bot: Bot, event: Event) -> None:
-    """Send event start notification to all participants with participant list."""
+    """Send event start notification to all participants and active chats with participant list."""
     async with get_async_session() as session:
         event_repository = EventRepository(session)
         user_repository = UserRepository(session)
 
-        if not event.participant_oids:
-            # No participants, just mark as sent
-            event.start_notification_sent = True
-            await event_repository.save(event)
-            await session.commit()
-            return
-
         # Load participant users by their oids in single query
-        participants = await user_repository.get_many(oids=event.participant_oids)
+        participants = await user_repository.get_many(oids=event.participant_oids) if event.participant_oids else []
 
         # Create participant list
-        participant_list = "\n".join([f"• @{user.username}" for user in participants])
+        participant_list = (
+            "\n".join([f"• @{user.username}" for user in participants]) if participants else "Нет участников"
+        )
 
         notification_text = (
             f"🎬 Ивент начинается!\n\n"
             f"📌 {event.title}\n"
             f"📝 {event.description}\n\n"
-            f"👥 Список участников:\n{participant_list}"
+            f"👥 Участников: {len(participants)}\n{participant_list}"
         )
 
         # Send to all participants
@@ -95,6 +93,7 @@ async def send_start_notification(bot: Bot, event: Event) -> None:
             except Exception:
                 # User might have blocked the bot
                 pass
+        await send_notification_to_groups(bot, session, notification_text)
 
         # Mark start notification as sent
         event.start_notification_sent = True
@@ -102,14 +101,21 @@ async def send_start_notification(bot: Bot, event: Event) -> None:
         await session.commit()
         await send_event_daily_notification_to_participant(bot, event, user_repository, datetime.now())
 
+        day_number = event.day_number
+        reminder_text = (
+            f"💪 Доброе утро!\n\n"
+            f"📌 Ивент: {event.title}\n"
+            f"📅 День {day_number}\n\n"
+            f"Сегодня нужно сделать {day_number} отжиманий!"
+        )
+        await send_notification_to_groups(bot, session, reminder_text)
+
 
 async def event_notification_task(bot: Bot) -> None:
     """Background task to send event notifications."""
     while True:
         try:
-            await asyncio.sleep(60)  # Check every minute
             now = datetime.now()
-
             async with get_async_session() as session:
                 event_repository = EventRepository(session)
 
@@ -129,10 +135,12 @@ async def event_notification_task(bot: Bot) -> None:
                         await send_pre_event_reminders(bot, event)
 
                 not_started_events = await event_repository.get_events_starting_now(now)
+                logger.info(f"{not_started_events}")
                 for event in not_started_events:
                     logger.info(f"Sending start notification for event: {event.title}")
                     if not event.is_started:
                         await send_start_notification(bot, event)
+            await asyncio.sleep(60)  # Check every minute
 
         except Exception as e:
             # Log error but keep the task running

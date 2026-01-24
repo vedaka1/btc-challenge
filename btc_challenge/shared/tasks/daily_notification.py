@@ -11,6 +11,7 @@ from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date 
 )
 from btc_challenge.shared.adapters.minio.storage import init_minio_storage
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
+from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
 from btc_challenge.stored_object.adapters.sqlite.repository import StoredObjectRepository
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 async def send_daily_notification(bot: Bot, target_date: datetime) -> None:
-    """Send daily stats report to all users who had pushups that day."""
+    """Send daily stats report to all users who had pushups that day and to groups."""
     async with get_async_session() as session:
         # Get stats for the target date
         interactor = GetAllUsersStatsByDateInteractor(
@@ -68,6 +69,11 @@ async def send_daily_notification(bot: Bot, target_date: datetime) -> None:
                 except Exception:
                     # User might have blocked the bot
                     pass
+
+        # Send report to groups (text only, without videos)
+        await send_notification_to_groups(bot, session, stats_text)
+
+        await session.commit()
 
 
 async def daily_notification_task(bot: Bot) -> None:

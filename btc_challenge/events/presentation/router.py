@@ -7,7 +7,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from punq import Container
 
-from btc_challenge.chats.adapters.sqlite.repository import ChatRepository
 from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.events.application.interactors.complete import CompleteEventInteractor
 from btc_challenge.events.application.interactors.create import CreateEventInteractor
@@ -18,6 +17,7 @@ from btc_challenge.events.presentation.states import CreateEventStates
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
 from btc_challenge.shared.presentation.checks import require_admin, require_verified
 from btc_challenge.shared.presentation.commands import Commands
+from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 from btc_challenge.users.domain.entity import User
 
@@ -319,7 +319,6 @@ async def send_event_invitations(bot: Bot, event: "Event") -> None:
     """Send event invitation to all verified users and active chats."""
     async with get_async_session() as session:
         user_repository = UserRepository(session)
-        chat_repository = ChatRepository(session)
 
         # Send to verified users
         users = await user_repository.get_many()
@@ -350,18 +349,6 @@ async def send_event_invitations(bot: Bot, event: "Event") -> None:
                 pass
 
         # Send to active chats (groups)
-        chats = await chat_repository.get_many(is_active=True)
-        for chat in chats:
-            try:
-                await bot.send_message(
-                    chat_id=chat.telegram_chat_id,
-                    text=invitation_text,
-                    reply_markup=keyboard,
-                )
-            except Exception as e:
-                # Chat might be unavailable, deactivate it
-                logger.warning("Failed to send message to chat %s: %s", chat.telegram_chat_id, e)
-                chat.deactivate()
-                await chat_repository.update(chat)
+        await send_notification_to_groups(bot, session, invitation_text, keyboard)
 
         await session.commit()

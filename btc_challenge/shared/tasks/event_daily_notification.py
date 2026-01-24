@@ -6,6 +6,7 @@ from aiogram import Bot
 from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.events.domain.entity import Event
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
+from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 from btc_challenge.users.domain.repository import IUserRepository
 
@@ -36,7 +37,7 @@ async def send_event_daily_notification_to_participant(
 
 
 async def send_event_daily_notification(bot: Bot) -> None:
-    """Send daily notification to event participants at 5:00 about required pushups."""
+    """Send daily notification to event participants and groups at 5:00 about required pushups."""
     now = datetime.now()
 
     async with get_async_session() as session:
@@ -47,22 +48,28 @@ async def send_event_daily_notification(bot: Bot) -> None:
         for event in active_events:
             if not event.participant_oids:
                 continue
+
+            # Send to participants
             await send_event_daily_notification_to_participant(bot, event, user_repository, now)
+
+            # Send to groups
+            day_number = event.day_number
+            notification_text = (
+                f"💪 Доброе утро!\n\n"
+                f"📌 Ивент: {event.title}\n"
+                f"📅 День {day_number}\n\n"
+                f"Сегодня нужно сделать {day_number} отжиманий!"
+            )
+            await send_notification_to_groups(bot, session, notification_text)
+            await session.commit()
 
 
 async def event_daily_notification_task(bot: Bot) -> None:
     """Background task to send daily notifications to event participants at 5:00."""
     while True:
+        await send_event_daily_notification(bot)
         now = datetime.now()
-
-        # Calculate next 5:00 AM
-        next_notification_time = now.replace(hour=5, minute=0, second=0, microsecond=0)
-        if now >= next_notification_time:
-            # If it's already past 5:00 today, schedule for tomorrow
-            next_notification_time = next_notification_time + timedelta(days=1)
-
-        # Sleep until 5:00 AM
+        now.replace(hour=2, minute=0, second=0, microsecond=0)
+        next_notification_time = now + timedelta(days=1)
         sleep_seconds = (next_notification_time - now).total_seconds()
         await asyncio.sleep(sleep_seconds)
-
-        await send_event_daily_notification(bot)

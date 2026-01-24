@@ -7,7 +7,7 @@ services:
       - ./btc_challenge:/app/btc_challenge
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
-      - db-data:/app/app.db
+      - db-data:/app/
     env_file:
       - .env.production
     networks:

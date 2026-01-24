@@ -6,7 +6,7 @@ ENV UV_PROJECT_ENVIRONMENT=/usr/local \
 
 WORKDIR /app
 
-RUN pip install --upgrade pip && apt install -y sqlite3
+RUN pip install --upgrade pip && apt update && apt install -y sqlite3
 COPY uv.lock pyproject.toml /app/
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \

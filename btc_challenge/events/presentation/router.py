@@ -15,6 +15,7 @@ from btc_challenge.events.application.interactors.join import JoinEventInteracto
 from btc_challenge.events.domain.entity import Event
 from btc_challenge.events.presentation.states import CreateEventStates
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
+from btc_challenge.shared.date import from_moscow, to_moscow
 from btc_challenge.shared.presentation.checks import require_admin, require_verified
 from btc_challenge.shared.presentation.commands import Commands
 from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
@@ -66,7 +67,7 @@ async def process_description(message: types.Message, state: FSMContext, user: U
 
     await state.update_data(description=message.text)
     await state.set_state(CreateEventStates.waiting_for_start_at)
-    example_date = datetime.now().strftime("%d.%m.%Y %H:%M")
+    example_date = to_moscow(datetime.now()).strftime("%d.%m.%Y %H:%M")
     await message.answer(f"Введите дату и время начала в формате:\nДД.ММ.ГГГГ ЧЧ:ММ\nНапример: {example_date}")
 
 
@@ -103,11 +104,11 @@ async def process_start_at(
     logger.info(f"process_start_at: parsing date '{message.text}'")
 
     try:
-        start_at = datetime.strptime(message.text, "%d.%m.%Y %H:%M")
+        start_at = from_moscow(datetime.strptime(message.text, "%d.%m.%Y %H:%M"))
         logger.info(f"process_start_at: parsed date: {start_at}")
     except ValueError as e:
         logger.error(f"process_start_at: failed to parse date: {e}")
-        example_date = datetime.now().strftime("%d.%m.%Y %H:%M")
+        example_date = to_moscow(datetime.now()).strftime("%d.%m.%Y %H:%M")
         await message.answer(f"Неверный формат даты. Используйте: ДД.ММ.ГГГГ ЧЧ:ММ\nНапример: {example_date}")
         return
 
@@ -143,7 +144,7 @@ async def process_start_at(
         f"✅ Ивент создан!\n\n"
         f"📌 {event.title}\n"
         f"📝 {event.description}\n"
-        f"🕐 Начало: {event.start_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+        f"🕐 Начало: {to_moscow(event.start_at).strftime('%d.%m.%Y %H:%M')}\n\n"
         f"Отправляю приглашения пользователям...",
     )
 
@@ -208,8 +209,6 @@ async def cmd_active_events(message: types.Message, container: Container, user: 
 
         for event in active_events:
             participants = await interactor.execute(event_oid=event.oid)
-            day_number = (now.date() - event.start_at.date()).days + 1
-
             participants_text = (
                 "\n".join([f"  • @{p.username}" for p in participants]) if participants else "  Нет участников"
             )
@@ -217,8 +216,8 @@ async def cmd_active_events(message: types.Message, container: Container, user: 
             event_text = (
                 f"🎯 {event.title}\n\n"
                 f"📝 {event.description}\n\n"
-                f"📅 День {day_number}\n"
-                f"🕐 Начало: {event.start_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+                f"📅 День {event.day_number}\n"
+                f"🕐 Начало: {to_moscow(event.start_at).strftime('%d.%m.%Y %H:%M')}\n\n"
                 f"👥 Участники ({len(participants)}):\n{participants_text}"
             )
 
@@ -249,13 +248,11 @@ async def cmd_complete_event(message: types.Message, container: Container, user:
             ],
         )
 
-        day_number = (datetime.now().date() - active_event.start_at.date()).days + 1
-
         confirmation_text = (
             f"⚠️ Вы уверены, что хотите завершить ивент?\n\n"
             f"📌 {active_event.title}\n"
             f"📝 {active_event.description}\n"
-            f"📅 День {day_number}\n"
+            f"📅 День {active_event.day_number}\n"
             f"👥 Участников: {len(active_event.participant_oids)}"
         )
 
@@ -300,12 +297,10 @@ async def handle_complete_event(
             "\n".join([f"  • @{p.username}" for p in participants]) if participants else "  Нет участников"
         )
 
-        day_number = (datetime.now().date() - event.start_at.date()).days + 1
-
         await callback.message.edit_text(
             f"✅ Ивент завершен!\n\n"
             f"📌 {event.title}\n"
-            f"📅 Продолжительность: {day_number} дней\n"
+            f"📅 Продолжительность: {event.day_number} дней\n"
             f"👥 Участников: {len(participants)}\n\n"
             f"Список участников:\n{participants_text}",
         )
@@ -333,7 +328,7 @@ async def send_event_invitations(bot: Bot, event: "Event") -> None:
             f"🎉 Новый ивент!\n\n"
             f"📌 {event.title}\n"
             f"📝 {event.description}\n"
-            f"🕐 Начало: {event.start_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+            f"🕐 Начало: {to_moscow(event.start_at).strftime('%d.%m.%Y %H:%M')}\n\n"
             f"Хочешь принять участие? Нажми кнопку ниже!"
         )
 

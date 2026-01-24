@@ -359,9 +359,6 @@ async def _notify_event_participants(
                 if not event.participant_oids:
                     continue
 
-                # Calculate day number since event start
-                day_number = (now.date() - event.start_at.date()).days + 1
-
                 # Get all participants except the user who completed pushups
                 other_participant_oids = [oid for oid in event.participant_oids if oid != user.oid]
                 if not other_participant_oids:
@@ -372,7 +369,7 @@ async def _notify_event_participants(
                 notification_text = (
                     f"🎉 @{user.username} выполнил дневную задачу!\n\n"
                     f"📌 Ивент: {event.title}\n"
-                    f"📅 День {day_number}\n"
+                    f"📅 День {event.day_number}\n"
                     f"💪 Отжиманий: {count}"
                 )
 

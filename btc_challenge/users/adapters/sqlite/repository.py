@@ -39,7 +39,7 @@ class UserRepository(IUserRepository):
     async def get_many(
         self,
         oids: list[UUID] | None = None,
-        is_verified: bool | None = None,
+        is_verified: bool | None = True,
         begin_created_at: datetime | None = None,
         end_created_at: datetime | None = None,
         limit: int | None = None,

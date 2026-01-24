@@ -13,3 +13,4 @@ class Commands(StrEnum):
     ACTIVE_EVENTS = "active_events"
     CONFIRMATION = "confirmation"
     CREATE_EVENT = "create_event"
+    COMPLETE_EVENT = "complete_event"

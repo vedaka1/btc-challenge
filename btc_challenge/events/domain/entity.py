@@ -10,8 +10,7 @@ class Event:
     title: str
     description: str
     start_at: datetime
-    end_at: datetime
-    initial_notification_sent: bool
+    completed_at: datetime | None
     reminder_notification_sent: bool
     start_notification_sent: bool
     participant_oids: list[UUID]  # Value object - loaded with entity
@@ -25,7 +24,6 @@ class Event:
         title: str,
         description: str,
         start_at: datetime,
-        end_at: datetime,
     ) -> "Event":
         now = datetime.now()
         return cls(
@@ -34,8 +32,7 @@ class Event:
             title=title,
             description=description,
             start_at=start_at,
-            end_at=end_at,
-            initial_notification_sent=False,
+            completed_at=None,
             reminder_notification_sent=False,
             start_notification_sent=False,
             participant_oids=[],
@@ -46,3 +43,11 @@ class Event:
     @property
     def day_number(self) -> int:
         return (datetime.now().date() - self.start_at.date()).days + 1
+
+    @property
+    def is_started(self) -> bool:
+        return datetime.now() >= self.start_at and self.start_notification_sent is True
+
+    @property
+    def is_active(self) -> bool:
+        return self.is_started and self.completed_at is None

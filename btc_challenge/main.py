@@ -4,6 +4,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 
+from btc_challenge.chats.presentation.router import chats_router
 from btc_challenge.config import AppConfig
 from btc_challenge.container import build_container
 from btc_challenge.events.presentation.router import events_router
@@ -23,12 +24,14 @@ def init_routers(dp: Dispatcher):
     dp.message.middleware(UserMiddleware())
     dp.callback_query.middleware(ContainerMiddleware())
     dp.callback_query.middleware(UserMiddleware())
+    dp.my_chat_member.middleware(ContainerMiddleware())
 
     # Routers
     dp.include_router(user_router)
     dp.include_router(verification_router)
     dp.include_router(push_ups_router)
     dp.include_router(events_router)
+    dp.include_router(chats_router)
 
 
 def init_logger() -> None:

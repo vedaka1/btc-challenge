@@ -128,12 +128,10 @@ async def event_notification_task(bot: Bot) -> None:
                     if not event.reminder_notification_sent:
                         await send_pre_event_reminders(bot, event)
 
-                # Check for events starting now (within 1-minute window)
-                events_starting_now = await event_repository.get_events_starting_now(now, tolerance_seconds=60)
-
-                for event in events_starting_now:
+                not_started_events = await event_repository.get_events_starting_now(now)
+                for event in not_started_events:
                     logger.info(f"Sending start notification for event: {event.title}")
-                    if not event.start_notification_sent:
+                    if not event.is_started:
                         await send_start_notification(bot, event)
 
         except Exception as e:

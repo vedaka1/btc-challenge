@@ -19,10 +19,6 @@ class IEventRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_upcoming(self, now: datetime) -> list[Event]:
-        pass
-
-    @abstractmethod
     async def add_participant(self, event_oid: UUID, user_oid: UUID) -> None:
         pass
 
@@ -33,7 +29,7 @@ class IEventRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_events_starting_now(self, now: datetime, tolerance_seconds: int = 60) -> list[Event]:
+    async def get_events_starting_now(self, now: datetime) -> list[Event]:
         pass
 
     @abstractmethod
@@ -42,4 +38,16 @@ class IEventRepository(ABC):
 
     @abstractmethod
     async def get_active_events_by_participant(self, participant_oid: UUID, now: datetime) -> list[Event]:
+        pass
+
+    @abstractmethod
+    async def get_current_active_event(self) -> Event | None:
+        pass
+
+    @abstractmethod
+    async def has_active_event(self) -> bool:
+        pass
+
+    @abstractmethod
+    async def get_uncompleted_events(self) -> list[Event]:
         pass

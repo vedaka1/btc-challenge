@@ -76,6 +76,25 @@ async def process_count(message: types.Message, state: FSMContext, user: User | 
         await message.answer("Введи корректное число")
         return
 
+    # Проверяем соответствие количества дню ивента
+    async with get_async_session() as session:
+        event_repository = EventRepository(session)
+        now = datetime.now()
+        active_events = await event_repository.get_active_events_by_participant(user.oid, now)
+
+        if active_events:
+            event = active_events[0]
+            day_number = event.day_number
+
+            if count != day_number:
+                await message.answer(
+                    f"❌ Неверное количество отжиманий!\n\n"
+                    f"📌 Ивент: {event.title}\n"
+                    f"📅 День {day_number} - нужно сделать ровно {day_number} отжиманий\n"
+                    f"💪 Ты указал: {count} отжиманий",
+                )
+                return
+
     await state.update_data(count=count)
     await state.set_state(PushUpStates.waiting_for_video)
     await message.answer(f"Отлично! Теперь отправь видео или кружок с {count} отжиманиями")
@@ -104,27 +123,6 @@ async def process_video(
     user_id = message.from_user.id
     data = await state.get_data()
     count = data.get("count", 0)
-
-    # Проверяем участие в активных событиях и ограничения
-    async with get_async_session() as session:
-        event_repository = EventRepository(session)
-        now = datetime.now()
-        active_events = await event_repository.get_active_events_by_participant(user.oid, now)
-
-        if active_events:
-            # Берем первое активное событие для проверки ограничения
-            event = active_events[0]
-            day_number = event.day_number
-
-            if count > day_number:
-                await state.clear()
-                await message.answer(
-                    f"❌ Превышен лимит отжиманий!\n\n"
-                    f"📌 Ивент: {event.title}\n"
-                    f"📅 День {day_number} - максимум {day_number} отжиманий\n"
-                    f"💪 Ты пытаешься загрузить: {count} отжиманий",
-                )
-                return
 
     # Определяем тип файла и получаем file_id
     file: types.Video | types.VideoNote | None = None
@@ -366,7 +364,6 @@ async def _notify_event_participants(
 
                 # Get all participants except the user who completed pushups
                 other_participant_oids = [oid for oid in event.participant_oids if oid != user.oid]
-                other_participant_oids = [oid for oid in event.participant_oids]
                 if not other_participant_oids:
                     continue
 

@@ -14,25 +14,25 @@ services:
       - internal
       - default
 
-  minio:
-    image: minio/minio
-    volumes:
-      - minio-data:/data
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-    ports:
-      - 9000:9000
-      - 9001:9001
-    networks:
-      - internal
-      - default
-    command: server /data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 1s
-      timeout: 3s
-      retries: 30
+  # minio:
+  #   image: minio/minio
+  #   volumes:
+  #     - minio-data:/data
+  #   environment:
+  #     - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+  #     - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+  #   ports:
+  #     - 9000:9000
+  #     - 9001:9001
+  #   networks:
+  #     - internal
+  #     - default
+  #   command: server /data --console-address ":9001"
+  #   healthcheck:
+  #     test: ["CMD", "mc", "ready", "local"]
+  #     interval: 1s
+  #     timeout: 3s
+  #     retries: 30
 
     
 volumes:

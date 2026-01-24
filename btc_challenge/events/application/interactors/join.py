@@ -1,4 +1,3 @@
-from datetime import datetime
 from uuid import UUID
 
 from btc_challenge.events.domain.repository import IEventRepository
@@ -14,10 +13,9 @@ class JoinEventInteractor:
         # Check if event exists
         event = await self._event_repository.get_by_oid(event_oid)
 
-        # Check if event hasn't started yet
-        now = datetime.now()
-        if event.start_at <= now:
-            raise ValueError("Cannot join event that has already started")
+        # Check if event is not completed
+        if event.completed_at is not None:
+            raise ValueError("Cannot join event that has been completed")
 
         # Check if user is already a participant (using value object)
         if user_oid in event.participant_oids:

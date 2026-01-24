@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from btc_challenge.events.domain.entity import Event
@@ -17,21 +17,25 @@ class CreateEventInteractor:
         title: str,
         description: str,
         start_at: datetime,
-        end_at: datetime,
     ) -> Event:
-        # Validate dates
+        # Validate start date
         now = datetime.now()
-        if start_at <= now:
-            raise ValueError("Event start time must be in the future")
-        if end_at <= start_at:
-            raise ValueError("Event end time must be after start time")
+        min_start_time = now + timedelta(minutes=2)
+        if start_at < min_start_time:
+            raise ValueError("Дата начала должна быть минимум через 2 минуты")
 
+        # Complete all uncompleted events before creating a new one
+        uncompleted_events = await self._event_repository.get_uncompleted_events()
+        for old_event in uncompleted_events:
+            old_event.completed_at = now
+            await self._event_repository.save(old_event)
+
+        # Create new event
         event = Event.create(
             creator_oid=creator_oid,
             title=title,
             description=description,
             start_at=start_at,
-            end_at=end_at,
         )
         await self._event_repository.create(event)
         await self._commiter.commit()

@@ -49,17 +49,6 @@ class EventRepository(IEventRepository):
             raise ObjectNotFoundError(f"Event with oid {oid} not found")
         return event
 
-    async def get_upcoming(self, now: datetime) -> list[Event]:
-        query = select(EventORM).where(EventORM.start_at > now).order_by(EventORM.start_at)
-        cursor = await self._session.execute(query)
-        rows = cursor.scalars().all()
-
-        events = []
-        for row in rows:
-            participant_oids = await self._load_participants(row.oid)
-            events.append(self._mapper.to_domain(row, participant_oids))
-        return events
-
     async def add_participant(self, event_oid: UUID, user_oid: UUID) -> None:
         participant = EventParticipantORM(
             event_oid=event_oid,
@@ -91,14 +80,12 @@ class EventRepository(IEventRepository):
             events.append(self._mapper.to_domain(row, participant_oids))
         return events
 
-    async def get_events_starting_now(self, now: datetime, tolerance_seconds: int = 60) -> list[Event]:
+    async def get_events_starting_now(self, now: datetime) -> list[Event]:
         query = (
             select(EventORM)
             .where(
-                EventORM.start_at <= now,  # Event has already started or starting now
-                EventORM.start_at
-                >= datetime.fromtimestamp(now.timestamp() - tolerance_seconds),  # But not too long ago
-                EventORM.start_notification_sent == False,
+                EventORM.start_at <= now,  # Event has already started or starting now and notification not sent
+                EventORM.start_notification_sent.is_(False),
             )
             .order_by(EventORM.start_at)
         )
@@ -112,12 +99,13 @@ class EventRepository(IEventRepository):
         return events
 
     async def get_active_events(self, now: datetime) -> list[Event]:
-        """Get events that are currently active (start_at <= now <= end_at)."""
+        """Get events that are currently active (started and not completed)."""
         query = (
             select(EventORM)
             .where(
                 EventORM.start_at <= now,
-                EventORM.end_at >= now,
+                EventORM.start_notification_sent == True,
+                EventORM.completed_at.is_(None),
             )
             .order_by(EventORM.start_at)
         )
@@ -137,11 +125,62 @@ class EventRepository(IEventRepository):
             .join(EventParticipantORM, EventParticipantORM.event_oid == EventORM.oid)
             .where(
                 EventORM.start_at <= now,
-                EventORM.end_at >= now,
+                EventORM.start_notification_sent == True,
+                EventORM.completed_at.is_(None),
                 EventParticipantORM.user_oid == participant_oid,
             )
             .order_by(EventORM.start_at)
         )
+        cursor = await self._session.execute(query)
+        rows = cursor.scalars().all()
+
+        events = []
+        for row in rows:
+            participant_oids = await self._load_participants(row.oid)
+            events.append(self._mapper.to_domain(row, participant_oids))
+        return events
+
+    async def get_current_active_event(self) -> Event | None:
+        """Get the current active event (if any)."""
+        now = datetime.now()
+        query = (
+            select(EventORM)
+            .where(
+                EventORM.start_at <= now,
+                EventORM.start_notification_sent == True,
+                EventORM.completed_at.is_(None),
+            )
+            .order_by(EventORM.start_at)
+            .limit(1)
+        )
+        cursor = await self._session.execute(query)
+        row = cursor.scalar_one_or_none()
+
+        if not row:
+            return None
+
+        participant_oids = await self._load_participants(row.oid)
+        return self._mapper.to_domain(row, participant_oids)
+
+    async def has_active_event(self) -> bool:
+        """Check if there is currently an active event."""
+        now = datetime.now()
+        query = (
+            select(EventORM.oid)
+            .where(
+                EventORM.start_at <= now,
+                EventORM.start_notification_sent == True,
+                EventORM.completed_at.is_(None),
+            )
+            .limit(1)
+        )
+        cursor = await self._session.execute(query)
+        result = cursor.scalar_one_or_none()
+        return result is not None
+
+    async def get_uncompleted_events(self) -> list[Event]:
+        """Get all events that are not completed."""
+        query = select(EventORM).where(EventORM.completed_at.is_(None)).order_by(EventORM.start_at)
         cursor = await self._session.execute(query)
         rows = cursor.scalars().all()
 

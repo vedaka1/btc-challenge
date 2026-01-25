@@ -67,7 +67,7 @@ async def daily_notification_task(bot: Bot) -> None:
         try:
             # Calculate next 00:05 UTC
             now = datetime.now()
-            next_notification_time = now.replace(hour=0, minute=5, second=0, microsecond=0)
+            next_notification_time = now.replace(hour=21, minute=5, second=0, microsecond=0)
             if now >= next_notification_time:
                 next_notification_time += timedelta(days=1)
 
@@ -76,7 +76,7 @@ async def daily_notification_task(bot: Bot) -> None:
             await asyncio.sleep(sleep_time)
 
             # Send report for previous day
-            target_date = datetime.now() - timedelta(days=1)
+            target_date = datetime.now()
             logger.info("Sending daily notification for %s", target_date.strftime("%d.%m.%Y"))
             await send_daily_notification(bot, target_date)
         except Exception as e:

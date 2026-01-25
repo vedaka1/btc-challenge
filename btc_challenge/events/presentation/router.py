@@ -174,7 +174,11 @@ async def handle_join_event(
         )
         return
 
-    event_oid = UUID(callback.data.split(":")[1])
+    try:
+        event_oid = UUID(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer("Некорректные данные события", show_alert=True)
+        return
 
     interactor: JoinEventInteractor = container.resolve(JoinEventInteractor)
     try:
@@ -274,13 +278,21 @@ async def handle_complete_event(
         await callback.answer("Только администраторы могут завершать ивенты", show_alert=True)
         return
 
-    action = callback.data.split(":")[1]
+    try:
+        action = callback.data.split(":")[1]
+    except IndexError:
+        await callback.answer("Некорректные данные", show_alert=True)
+        return
 
     if action == "cancel":
         await callback.message.edit_text("❌ Завершение ивента отменено")
         return
 
-    event_oid = UUID(action)
+    try:
+        event_oid = UUID(action)
+    except ValueError:
+        await callback.answer("Некорректный идентификатор события", show_alert=True)
+        return
 
     # Complete the event
 

@@ -20,6 +20,14 @@ class CreatePushUpInteractor:
         is_video_note: bool,
         count: int = 0,
     ) -> PushUp:
+        if count <= 0:
+            msg = "Count must be greater than 0"
+            raise ValueError(msg)
+
+        if not telegram_file_id or not telegram_file_id.strip():
+            msg = "Telegram file id cannot be empty"
+            raise ValueError(msg)
+
         user = await self.user_repository.get_by_telegram_id(telegram_id)
         if not user:
             msg = f"User with telegram_id {telegram_id} not found"

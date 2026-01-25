@@ -8,6 +8,7 @@ from punq import Container
 
 from btc_challenge.chats.adapters.sqlite.repository import ChatRepository
 from btc_challenge.events.adapters.sqlite.repository import EventRepository
+from btc_challenge.push_ups.adapters.sqlite.repository import PushUpRepository
 from btc_challenge.push_ups.application.interactors.create import CreatePushUpInteractor
 from btc_challenge.push_ups.application.interactors.get_all_users_stats import GetAllUsersStatsInteractor
 from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date import (
@@ -16,6 +17,7 @@ from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date 
 from btc_challenge.push_ups.application.interactors.get_daily_stats import GetDailyStatsInteractor
 from btc_challenge.push_ups.presentation.states import PushUpStates
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
+from btc_challenge.shared.date import get_current_day_range
 from btc_challenge.shared.errors import ObjectNotFoundError
 from btc_challenge.shared.presentation.checks import require_verified
 from btc_challenge.shared.presentation.commands import Commands
@@ -50,18 +52,30 @@ async def cmd_add_push_up(message: types.Message, state: FSMContext, user: User 
     # Проверяем участие в активных событиях
     async with get_async_session() as session:
         event_repository = EventRepository(session)
+        push_up_repository = PushUpRepository(session)
         now = datetime.now()
         active_events = await event_repository.get_active_events_by_participant(user.oid, now)
 
         if not active_events:
             await message.answer(
-                f"❌ Ты не участвуешь ни в одном активном ивенте!\n\nИспользуй /{Commands.ACTIVE_EVENTS} чтобы посмотреть доступные ивенты.",
+                f"❌ Ты не участвуешь ни в одном активном ивенте!\n\n"
+                f"Используй /{Commands.ACTIVE_EVENTS} чтобы посмотреть доступные ивенты.",
             )
             return
 
         # Используем day_number из активного события
         event = active_events[0]
         count = event.day_number
+
+        begin_date, end_date = get_current_day_range()
+        push_ups = await push_up_repository.get_by_user_oid_and_date(
+            user_oid=user.oid,
+            begin_date=begin_date,
+            end_date=end_date,
+        )
+        if push_ups:
+            await message.answer("❌ Ты уже отжимался сегодня")
+            return
 
     await state.update_data(count=count)
     await state.set_state(PushUpStates.waiting_for_video)
@@ -87,6 +101,11 @@ async def process_video(
     data = await state.get_data()
     count = data.get("count", 0)
 
+    if count <= 0:
+        await message.answer("Ошибка: некорректное количество отжиманий")
+        await state.clear()
+        return
+
     # Определяем тип файла и получаем file_id
     file: types.Video | types.VideoNote | None = None
     is_video_note = False
@@ -100,7 +119,7 @@ async def process_video(
         return
 
     # Сохраняем в БД только file_id
-    interactor = container.resolve(CreatePushUpInteractor)
+    interactor: CreatePushUpInteractor = container.resolve(CreatePushUpInteractor)
     await interactor.execute(
         telegram_id=user_id,
         telegram_file_id=file.file_id,
@@ -223,7 +242,12 @@ async def process_history_callback(
         await callback.answer()
         return
 
-    days_ago = int(days_str)
+    try:
+        days_ago = int(days_str)
+    except ValueError:
+        await callback.answer("Некорректные данные", show_alert=True)
+        return
+
     target_date = datetime.now() - timedelta(days=days_ago)
 
     await _show_stats_for_date(callback.message, container, target_date)

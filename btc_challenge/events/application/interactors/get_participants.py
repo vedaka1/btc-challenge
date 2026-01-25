@@ -17,6 +17,9 @@ class GetEventParticipantsInteractor:
     async def execute(self, event_oid: UUID) -> list[User]:
         # Get event with participant_oids
         event = await self._event_repository.get_by_oid(event_oid)
+        if not event:
+            msg = "Event not found"
+            raise ValueError(msg)
 
         # Load users by their oids in single query
         return await self._user_repository.get_many(oids=event.participant_oids)

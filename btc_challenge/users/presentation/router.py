@@ -26,6 +26,9 @@ async def cmd_start(message: types.Message, container: Container) -> None:
         is_new_user = True
     except ObjectAlreadyExistsError:
         pass
+    except ValueError as e:
+        await message.answer(f"❌ Ошибка регистрации: {e}")
+        return
 
     welcome_text = (
         "👋 Добро пожаловать в BTC Challenge!\n\n"

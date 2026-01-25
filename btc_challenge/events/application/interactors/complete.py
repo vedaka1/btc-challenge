@@ -13,12 +13,17 @@ class CompleteEventInteractor:
 
     async def execute(self, event_oid: UUID) -> Event:
         event = await self._event_repository.get_by_oid(event_oid)
+        if not event:
+            msg = "Event not found"
+            raise ValueError(msg)
 
         if event.completed_at is not None:
-            raise ValueError("Ивент уже завершен")
+            msg = "Ивент уже завершен"
+            raise ValueError(msg)
 
         if not event.is_started:
-            raise ValueError("Нельзя завершить не начавшийся ивент")
+            msg = "Нельзя завершить не начавшийся ивент"
+            raise ValueError(msg)
 
         event.completed_at = datetime.now()
         await self._event_repository.save(event)

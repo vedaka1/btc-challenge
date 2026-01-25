@@ -18,11 +18,21 @@ class CreateEventInteractor:
         description: str,
         start_at: datetime,
     ) -> Event:
+        # Validate inputs
+        if not title or not title.strip():
+            msg = "Title cannot be empty"
+            raise ValueError(msg)
+
+        if not description or not description.strip():
+            msg = "Description cannot be empty"
+            raise ValueError(msg)
+
         # Validate start date
         now = datetime.now()
         min_start_time = now + timedelta(minutes=2)
         if start_at < min_start_time:
-            raise ValueError("Дата начала должна быть минимум через 2 минуты")
+            msg = "Дата начала должна быть минимум через 2 минуты"
+            raise ValueError(msg)
 
         # Complete all uncompleted events before creating a new one
         uncompleted_events = await self._event_repository.get_uncompleted_events()

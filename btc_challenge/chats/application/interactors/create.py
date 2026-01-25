@@ -14,6 +14,11 @@ class CreateChatInteractor:
         chat_type: str,
         title: str | None = None,
     ) -> Chat:
+        # Validate chat_type
+        if chat_type not in ("group", "supergroup"):
+            msg = f"Invalid chat_type: {chat_type}. Must be 'group' or 'supergroup'"
+            raise ValueError(msg)
+
         # Check if chat already exists
         existing_chat = await self._chat_repository.get_by_telegram_chat_id(telegram_chat_id)
         if existing_chat:

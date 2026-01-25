@@ -66,9 +66,9 @@ async def send_pushup_reminder_to_inactive_participants(bot: Bot) -> None:
                             chat_id=participant.telegram_id,
                             text=reminder_text,
                         )
-                        logger.info(f"Sent reminder to {participant.username}")
+                        logger.info("Sent reminder to %s", participant.username)
                     except Exception as e:
-                        logger.warning(f"Failed to send reminder to {participant.username}: {e}")
+                        logger.warning("Failed to send reminder to %s: %s", participant.username, e)
 
 
 async def event_reminder_task(bot: Bot) -> None:
@@ -82,7 +82,7 @@ async def event_reminder_task(bot: Bot) -> None:
                 next_reminder_time += timedelta(days=1)
 
             sleep_seconds = (next_reminder_time - now).total_seconds()
-            logger.info(f"Next reminder at {next_reminder_time} UTC, sleeping {sleep_seconds}s")
+            logger.info("Next reminder at %s UTC, sleeping %ss", next_reminder_time, sleep_seconds)
 
             await asyncio.sleep(sleep_seconds)
 
@@ -90,5 +90,5 @@ async def event_reminder_task(bot: Bot) -> None:
             await send_pushup_reminder_to_inactive_participants(bot)
 
         except Exception as e:
-            logger.error(f"Error in event_reminder_task: {e}")
+            logger.error("Error in event_reminder_task: %s", e)
             await asyncio.sleep(60)

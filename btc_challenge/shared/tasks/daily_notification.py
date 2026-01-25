@@ -3,17 +3,14 @@ import logging
 from datetime import datetime, timedelta
 
 from aiogram import Bot
-from aiogram.types import BufferedInputFile
 
 from btc_challenge.push_ups.adapters.sqlite.repository import PushUpRepository
 from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date import (
     GetAllUsersStatsByDateInteractor,
 )
-from btc_challenge.shared.adapters.minio.storage import init_minio_storage
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
 from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
 from btc_challenge.shared.utils import pluralize_pushups
-from btc_challenge.stored_object.adapters.sqlite.repository import StoredObjectRepository
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -25,9 +22,7 @@ async def send_daily_notification(bot: Bot, target_date: datetime) -> None:
         # Get stats for the target date
         interactor = GetAllUsersStatsByDateInteractor(
             push_up_repository=PushUpRepository(session),
-            stored_object_repository=StoredObjectRepository(session),
             user_repository=UserRepository(session),
-            storage=init_minio_storage(),
         )
         stats_list = await interactor.execute(date=target_date)
 
@@ -56,17 +51,26 @@ async def send_daily_notification(bot: Bot, target_date: datetime) -> None:
                 try:
                     await bot.send_message(user.telegram_id, stats_text)
 
-                    # Send videos
+                    # Send videos using telegram file_id
                     for stats in stats_list:
                         if stats.videos:
                             await bot.send_message(user.telegram_id, f"📹 Видео @{stats.username}:")
-                            for count, video_bytes in stats.videos:
-                                video_file = BufferedInputFile(video_bytes, filename="video.mp4")
-                                await bot.send_video(
-                                    chat_id=user.telegram_id,
-                                    video=video_file,
-                                    caption=f"@{stats.username}: {count} {pluralize_pushups(count)}",
-                                )
+                            for count, file_id, is_video_note in stats.videos:
+                                if is_video_note:
+                                    await bot.send_video_note(
+                                        chat_id=user.telegram_id,
+                                        video_note=file_id,
+                                    )
+                                    await bot.send_message(
+                                        chat_id=user.telegram_id,
+                                        text=f"@{stats.username}: {count} {pluralize_pushups(count)}",
+                                    )
+                                else:
+                                    await bot.send_video(
+                                        chat_id=user.telegram_id,
+                                        video=file_id,
+                                        caption=f"@{stats.username}: {count} {pluralize_pushups(count)}",
+                                    )
                 except Exception:
                     # User might have blocked the bot
                     pass
@@ -78,14 +82,23 @@ async def send_daily_notification(bot: Bot, target_date: datetime) -> None:
 
 
 async def daily_notification_task(bot: Bot) -> None:
+    """Background task to send daily report at 00:05."""
     while True:
-        now = datetime.now()
-        target_date = now - timedelta(days=1)
-        next_notification_time = now.replace(day=now.day + 1, hour=0, minute=5, second=0, microsecond=0)
-        sleep_time = (next_notification_time - now).total_seconds()
-        logger.info("Sending daily notification at %s in %s seconds", next_notification_time, sleep_time)
-        await asyncio.sleep(sleep_time)
+        try:
+            # Calculate next 00:05 UTC
+            now = datetime.now()
+            next_notification_time = now.replace(hour=0, minute=5, second=0, microsecond=0)
+            if now >= next_notification_time:
+                next_notification_time += timedelta(days=1)
 
-        logger.info("Sending daily notification for %s", target_date)
-        await send_daily_notification(bot, target_date)
-        break
+            sleep_time = (next_notification_time - now).total_seconds()
+            logger.info("Next daily notification at %s in %s seconds", next_notification_time, sleep_time)
+            await asyncio.sleep(sleep_time)
+
+            # Send report for previous day
+            target_date = datetime.now() - timedelta(days=1)
+            logger.info("Sending daily notification for %s", target_date.strftime("%d.%m.%Y"))
+            await send_daily_notification(bot, target_date)
+        except Exception as e:
+            logger.error("Error in daily_notification_task: %s", e)
+            await asyncio.sleep(60)

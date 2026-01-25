@@ -118,7 +118,9 @@ async def event_notification_task(bot: Bot) -> None:
                 one_hour_later = now + timedelta(hours=1)
                 one_hour_later_end = one_hour_later + timedelta(minutes=2)
                 logger.info(
-                    f"Checking for events starting in 1 hour (with 2-minute window): {one_hour_later} - {one_hour_later_end}",
+                    "Checking for events starting in 1 hour (with 2-minute window): %s - %s",
+                    one_hour_later,
+                    one_hour_later_end,
                 )
                 events_starting_soon = await event_repository.get_events_starting_soon(
                     one_hour_later,
@@ -130,14 +132,14 @@ async def event_notification_task(bot: Bot) -> None:
                         await send_pre_event_reminders(bot, event)
 
                 not_started_events = await event_repository.get_events_starting_now(now)
-                logger.info(f"{not_started_events}")
+                logger.info("Events starting now: %s", len(not_started_events))
                 for event in not_started_events:
-                    logger.info(f"Sending start notification for event: {event.title}")
+                    logger.info("Sending start notification for event: %s", event.title)
                     if not event.is_started:
                         await send_start_notification(bot, event)
             await asyncio.sleep(60)  # Check every minute
 
         except Exception as e:
             # Log error but keep the task running
-            logger.error(f"Error in event_notification_task: {e}")
-            continue
+            logger.error("Error in event_notification_task: %s", e)
+            await asyncio.sleep(60)

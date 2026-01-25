@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from aiogram import Bot
 
+from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.push_ups.adapters.sqlite.repository import PushUpRepository
 from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date import (
     GetAllUsersStatsByDateInteractor,
@@ -30,8 +31,41 @@ async def send_daily_notification(bot: Bot, target_date: datetime) -> None:
 
         date_str = target_date.strftime("%d.%m.%Y")
 
-        # Подсчитываем общее количество отжиманий
+        # Подсчитываем общее количество отжиманий за день
         total_pushups = sum(stats.total_count for stats in stats_list)
+
+        # Получаем текущий активный ивент
+        event_repository = EventRepository(session)
+        active_event = await event_repository.get_current_active_event()
+
+        # Получаем статистику с начала ивента, если есть активный ивент
+        event_stats = {}
+        total_event_pushups = 0
+        if active_event:
+            user_repository = UserRepository(session)
+            all_users = await user_repository.get_many(is_verified=True)
+            user_oids = [user.oid for user in all_users]
+
+            # Получаем все отжимания с начала ивента до конца текущего дня
+            event_begin = active_event.start_at.replace(hour=0, minute=0, second=0, microsecond=0)
+            event_end = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+            push_up_repository = PushUpRepository(session)
+            all_event_pushups = await push_up_repository.get_by_user_oids_and_date(
+                user_oids=user_oids,
+                begin_date=event_begin,
+                end_date=event_end,
+            )
+
+            # Группируем по пользователям
+            user_map = {user.oid: user for user in all_users}
+            for push_up in all_event_pushups:
+                user = user_map.get(push_up.user_oid)
+                if user:
+                    if user.username not in event_stats:
+                        event_stats[user.username] = 0
+                    event_stats[user.username] += push_up.count
+                    total_event_pushups += push_up.count
 
         # Получаем список тех, кто не выполнил отжимания
         user_repository = UserRepository(session)
@@ -42,11 +76,19 @@ async def send_daily_notification(bot: Bot, target_date: datetime) -> None:
         # Формируем текст с рейтингом
         medals = {1: "🥇", 2: "🥈", 3: "🥉"}
         stats_text = f"🏆 Отчет за {date_str}:\n\n"
-        stats_text += f"💪 Всего отжиманий: {total_pushups}\n\n"
+        stats_text += f"💪 Всего за день: {total_pushups}\n"
+        if active_event:
+            stats_text += f"🔥 Всего с начала ивента: {total_event_pushups}\n"
+        stats_text += "\n"
+
         for idx, stats in enumerate(stats_list, start=1):
             medal = medals.get(idx, f"{idx}.")
+            event_info = ""
+            if active_event and stats.username in event_stats:
+                event_info = f" (всего в ивенте: {event_stats[stats.username]})"
             stats_text += (
-                f"{medal} @{stats.username}\nОтжиманий: {stats.total_count} ({stats.push_ups_count} подходов)\n\n"
+                f"{medal} @{stats.username}\n"
+                f"Отжиманий: {stats.total_count} ({stats.push_ups_count} подходов){event_info}\n\n"
             )
 
         # Добавляем список неактивных

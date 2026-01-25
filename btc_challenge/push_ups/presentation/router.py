@@ -22,6 +22,7 @@ from btc_challenge.shared.errors import ObjectNotFoundError
 from btc_challenge.shared.presentation.checks import require_verified
 from btc_challenge.shared.presentation.commands import Commands
 from btc_challenge.shared.utils import pluralize_pushups
+from btc_challenge.users.adapters.sqlite.repository import UserRepository
 from btc_challenge.users.domain.entity import User
 
 push_ups_router = Router()
@@ -166,8 +167,29 @@ async def cmd_info(message: types.Message, container: Container, user: User | No
         await message.answer("Сегодня еще не было подходов")
         return
 
+    # Получаем статистику за ивент
+    event_total = 0
+    async with get_async_session() as session:
+        event_repository = EventRepository(session)
+        active_event = await event_repository.get_current_active_event()
+
+        if active_event:
+            push_up_repository = PushUpRepository(session)
+            now = datetime.now()
+            event_begin = active_event.start_at.replace(hour=0, minute=0, second=0, microsecond=0)
+            event_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+            event_pushups = await push_up_repository.get_by_user_oid_and_date(
+                user_oid=user.oid,
+                begin_date=event_begin,
+                end_date=event_end,
+            )
+            event_total = sum(p.count for p in event_pushups)
+
     # Отправляем статистику
     stats_text = f"📊 Статистика за сегодня:\n\nВсего отжиманий: {stats.total_count}\nПодходов: {stats.push_ups_count}"
+    if active_event and event_total > 0:
+        stats_text += f"\n\n🔥 За время ивента: {event_total}"
     await message.answer(stats_text)
 
     # Отправляем видео
@@ -191,12 +213,53 @@ async def cmd_stats(message: types.Message, container: Container) -> None:
         await message.answer("Сегодня еще никто не отжимался")
         return
 
+    # Получаем статистику за ивент
+    event_stats = {}
+    total_event_pushups = 0
+    async with get_async_session() as session:
+        event_repository = EventRepository(session)
+        active_event = await event_repository.get_current_active_event()
+
+        if active_event:
+            push_up_repository = PushUpRepository(session)
+            now = datetime.now()
+            event_begin = active_event.start_at.replace(hour=0, minute=0, second=0, microsecond=0)
+            event_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+            user_repository = UserRepository(session)
+            all_users = await user_repository.get_many(is_verified=True)
+            user_oids = [user.oid for user in all_users]
+
+            all_event_pushups = await push_up_repository.get_by_user_oids_and_date(
+                user_oids=user_oids,
+                begin_date=event_begin,
+                end_date=event_end,
+            )
+
+            # Группируем по пользователям
+            user_map = {user.oid: user for user in all_users}
+            for push_up in all_event_pushups:
+                user = user_map.get(push_up.user_oid)
+                if user:
+                    if user.username not in event_stats:
+                        event_stats[user.username] = 0
+                    event_stats[user.username] += push_up.count
+                    total_event_pushups += push_up.count
+
     # Формируем текст с рейтингом
     medals = {1: "🥇", 2: "🥈", 3: "🥉"}
     stats_text = "🏆 Статистика за сегодня:\n\n"
+    if active_event:
+        total_today = sum(stats.total_count for stats in stats_list)
+        stats_text += f"💪 Всего за день: {total_today}\n"
+        stats_text += f"🔥 Всего за ивент: {total_event_pushups}\n\n"
+
     for idx, stats in enumerate(stats_list, start=1):
         medal = medals.get(idx, f"{idx}.")
-        stats_text += f"{medal} @{stats.username}\nОтжиманий: {stats.total_count} ({stats.push_ups_count} подходов)\n\n"
+        event_info = ""
+        if active_event and stats.username in event_stats:
+            event_info = f" (за ивент: {event_stats[stats.username]})"
+        stats_text += f"{medal} @{stats.username}\nОтжиманий: {stats.total_count} ({stats.push_ups_count} подходов){event_info}\n\n"
 
     await message.answer(stats_text)
 

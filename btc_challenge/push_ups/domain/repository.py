@@ -22,3 +22,11 @@ class IPushUpRepository(ABC):
         begin_date: datetime,
         end_date: datetime,
     ) -> list[PushUp]: ...
+
+    @abstractmethod
+    async def get_by_user_oids_and_date(
+        self,
+        user_oids: list[UUID],
+        begin_date: datetime,
+        end_date: datetime,
+    ) -> list[PushUp]: ...

@@ -51,3 +51,7 @@ class Event:
     @property
     def is_active(self) -> bool:
         return self.is_started and self.completed_at is None
+
+    @property
+    def str_info(self) -> str:
+        return f"📌 Ивент: {self.title}\n📅 День {self.day_number}"

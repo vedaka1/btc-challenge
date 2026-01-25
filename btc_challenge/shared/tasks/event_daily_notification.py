@@ -7,6 +7,7 @@ from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.events.domain.entity import Event
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
 from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
+from btc_challenge.shared.utils import create_event_notification_text
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 from btc_challenge.users.domain.repository import IUserRepository
 
@@ -15,17 +16,9 @@ async def send_event_daily_notification_to_participant(
     bot: Bot,
     event: Event,
     user_repository: IUserRepository,
-    now: datetime,
 ) -> None:
-    day_number = event.day_number
     participants = await user_repository.get_many(oids=event.participant_oids)
-    notification_text = (
-        f"💪 Доброе утро!\n\n"
-        f"📌 Ивент: {event.title}\n"
-        f"📅 День {day_number}\n\n"
-        f"Сегодня нужно сделать {day_number} отжиманий!"
-    )
-
+    notification_text = create_event_notification_text(event)
     for participant in participants:
         try:
             await bot.send_message(
@@ -50,16 +43,10 @@ async def send_event_daily_notification(bot: Bot) -> None:
                 continue
 
             # Send to participants
-            await send_event_daily_notification_to_participant(bot, event, user_repository, now)
+            await send_event_daily_notification_to_participant(bot, event, user_repository)
 
             # Send to groups
-            day_number = event.day_number
-            notification_text = (
-                f"💪 Доброе утро!\n\n"
-                f"📌 Ивент: {event.title}\n"
-                f"📅 День {day_number}\n\n"
-                f"Сегодня нужно сделать {day_number} отжиманий!"
-            )
+            notification_text = create_event_notification_text(event)
             await send_notification_to_groups(bot, session, notification_text)
             await session.commit()
 

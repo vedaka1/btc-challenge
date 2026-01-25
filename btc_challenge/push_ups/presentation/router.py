@@ -19,6 +19,7 @@ from btc_challenge.shared.adapters.sqlite.session import get_async_session
 from btc_challenge.shared.errors import ObjectNotFoundError
 from btc_challenge.shared.presentation.checks import require_verified
 from btc_challenge.shared.presentation.commands import Commands
+from btc_challenge.shared.utils import pluralize_pushups
 from btc_challenge.users.domain.entity import User
 
 push_ups_router = Router()
@@ -58,56 +59,13 @@ async def cmd_add_push_up(message: types.Message, state: FSMContext, user: User 
             )
             return
 
-    await state.set_state(PushUpStates.waiting_for_count)
-    await message.answer("Сколько отжиманий сделал?")
-
-
-@push_ups_router.message(PushUpStates.waiting_for_count, F.text)
-async def process_count(message: types.Message, state: FSMContext, user: User | None) -> None:
-    if not await require_verified(message, user):
-        await state.clear()
-        return
-
-    if not message.text:
-        await message.answer("Введи количество отжиманий числом")
-        return
-
-    try:
-        count = int(message.text)
-        if count <= 0:
-            await message.answer("Количество должно быть больше 0")
-            return
-    except ValueError:
-        await message.answer("Введи корректное число")
-        return
-
-    # Проверяем соответствие количества дню ивента
-    async with get_async_session() as session:
-        event_repository = EventRepository(session)
-        now = datetime.now()
-        active_events = await event_repository.get_active_events_by_participant(user.oid, now)
-
-        if active_events:
-            event = active_events[0]
-            day_number = event.day_number
-
-            if count != day_number:
-                await message.answer(
-                    f"❌ Неверное количество отжиманий!\n\n"
-                    f"📌 Ивент: {event.title}\n"
-                    f"📅 День {day_number} - нужно сделать ровно {day_number} отжиманий\n"
-                    f"💪 Ты указал: {count} отжиманий",
-                )
-                return
+        # Используем day_number из активного события
+        event = active_events[0]
+        count = event.day_number
 
     await state.update_data(count=count)
     await state.set_state(PushUpStates.waiting_for_video)
-    await message.answer(f"Отлично! Теперь отправь видео или кружок с {count} отжиманиями")
-
-
-@push_ups_router.message(PushUpStates.waiting_for_count)
-async def wrong_count_type(message: types.Message) -> None:
-    await message.answer("Введи количество отжиманий числом")
+    await message.answer(f"Отправь видео или кружок с отжиманиями: {count}")
 
 
 @push_ups_router.message(PushUpStates.waiting_for_video, F.video | F.video_note)
@@ -151,7 +109,7 @@ async def process_video(
     )
 
     await state.clear()
-    await message.answer(f"Подход сохранен! {count} отжиманий 💪")
+    await message.answer(f"Подход сохранен! {count} {pluralize_pushups(count)} 💪")
 
     # Отправляем уведомления участникам событий
     await _notify_event_participants(
@@ -197,11 +155,11 @@ async def cmd_info(message: types.Message, container: Container, user: User | No
     for count, file_id, is_video_note in stats.videos:
         if is_video_note:
             await message.answer_video_note(video_note=file_id)
-            await message.answer(f"Подход: {count} отжиманий")
+            await message.answer(f"Подход: {count} {pluralize_pushups(count)}")
         else:
             await message.answer_video(
                 video=file_id,
-                caption=f"Подход: {count} отжиманий",
+                caption=f"Подход: {count} {pluralize_pushups(count)}",
             )
 
 
@@ -335,11 +293,11 @@ async def _show_stats_for_date(
             for count, file_id, is_video_note in stats.videos:
                 if is_video_note:
                     await message.answer_video_note(video_note=file_id)
-                    await message.answer(f"@{stats.username}: {count} отжиманий")
+                    await message.answer(f"@{stats.username}: {count} {pluralize_pushups(count)}")
                 else:
                     await message.answer_video(
                         video=file_id,
-                        caption=f"@{stats.username}: {count} отжиманий",
+                        caption=f"@{stats.username}: {count} {pluralize_pushups(count)}",
                     )
 
 
@@ -371,9 +329,8 @@ async def _notify_event_participants(
             for event in active_events:
                 notification_text = (
                     f"🎉 @{user.username} выполнил дневную задачу!\n\n"
-                    f"📌 Ивент: {event.title}\n"
-                    f"📅 День {event.day_number}\n"
-                    f"💪 Отжиманий: {count}"
+                    f"{event.str_info}\n"
+                    f"💪 {count} {pluralize_pushups(count)}"
                 )
 
                 # Send to all active group chats

@@ -48,6 +48,25 @@ class PushUpRepository(IPushUpRepository):
         rows = cursor.scalars().all()
         return [self._mapper.to_entity(row) for row in rows]
 
+    async def get_by_user_oids_and_date(
+        self,
+        user_oids: list[UUID],
+        begin_date: datetime,
+        end_date: datetime,
+    ) -> list[PushUp]:
+        if not user_oids:
+            return []
+        query = (
+            select(PushUpORM)
+            .where(PushUpORM.user_oid.in_(user_oids))
+            .where(PushUpORM.created_at >= begin_date)
+            .where(PushUpORM.created_at <= end_date)
+            .order_by(PushUpORM.created_at.desc())
+        )
+        cursor = await self._session.execute(query)
+        rows = cursor.scalars().all()
+        return [self._mapper.to_entity(row) for row in rows]
+
     async def get_many(
         self,
         begin_created_at: datetime | None = None,

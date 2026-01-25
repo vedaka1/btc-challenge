@@ -12,6 +12,7 @@ from btc_challenge.shared.tasks.event_daily_notification import (
     send_event_daily_notification_to_participant,
 )
 from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
+from btc_challenge.shared.utils import create_event_notification_text
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -99,15 +100,9 @@ async def send_start_notification(bot: Bot, event: Event) -> None:
         event.start_notification_sent = True
         await event_repository.save(event)
         await session.commit()
-        await send_event_daily_notification_to_participant(bot, event, user_repository, datetime.now())
+        await send_event_daily_notification_to_participant(bot, event, user_repository)
 
-        day_number = event.day_number
-        reminder_text = (
-            f"💪 Доброе утро!\n\n"
-            f"📌 Ивент: {event.title}\n"
-            f"📅 День {day_number}\n\n"
-            f"Сегодня нужно сделать {day_number} отжиманий!"
-        )
+        reminder_text = create_event_notification_text(event)
         await send_notification_to_groups(bot, session, reminder_text)
 
 

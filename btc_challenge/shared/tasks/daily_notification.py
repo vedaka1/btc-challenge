@@ -12,6 +12,7 @@ from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date 
 from btc_challenge.shared.adapters.minio.storage import init_minio_storage
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
 from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
+from btc_challenge.shared.utils import pluralize_pushups
 from btc_challenge.stored_object.adapters.sqlite.repository import StoredObjectRepository
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 
@@ -64,7 +65,7 @@ async def send_daily_notification(bot: Bot, target_date: datetime) -> None:
                                 await bot.send_video(
                                     chat_id=user.telegram_id,
                                     video=video_file,
-                                    caption=f"@{stats.username}: {count} отжиманий",
+                                    caption=f"@{stats.username}: {count} {pluralize_pushups(count)}",
                                 )
                 except Exception:
                     # User might have blocked the bot

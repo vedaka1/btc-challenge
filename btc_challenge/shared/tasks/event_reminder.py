@@ -76,7 +76,6 @@ async def event_reminder_task(bot: Bot) -> None:
     while True:
         try:
             # Calculate next 17:00 UTC
-            await send_pushup_reminder_to_inactive_participants(bot)
             now = datetime.now()
             next_reminder_time = now.replace(hour=17, minute=0, second=0, microsecond=0)
             if now >= next_reminder_time:

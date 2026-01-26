@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from btc_challenge.shared.date import to_moscow
+
 
 @dataclass
 class Event:
@@ -42,7 +44,7 @@ class Event:
 
     @property
     def day_number(self) -> int:
-        return (datetime.now().date() - self.start_at.date()).days + 1
+        return (to_moscow(datetime.now()).date() - to_moscow(self.start_at).date()).days + 1
 
     @property
     def is_started(self) -> bool:

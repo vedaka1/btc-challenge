@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
@@ -40,7 +41,7 @@ class GetAllUsersStatsInteractor:
         )
 
         # Группируем подходы по пользователям
-        user_push_ups: dict[UUID, list[PushUp]] = {user_oid: [] for user_oid in user_oids}
+        user_push_ups: dict[UUID, list[PushUp]] = defaultdict(list)
         for push_up in all_push_ups:
             user_push_ups[push_up.user_oid].append(push_up)
 
@@ -48,17 +49,15 @@ class GetAllUsersStatsInteractor:
         stats_list: list[UserDailyStats] = []
         user_map = {user.oid: user for user in users}
         for user_oid, push_ups in user_push_ups.items():
-            if push_ups:  # Показываем только тех, у кого есть подходы
-                user = user_map[user_oid]
-                total_count = sum(p.count for p in push_ups)
-                stats_list.append(
-                    UserDailyStats(
-                        username=user.username,
-                        total_count=total_count,
-                        push_ups_count=len(push_ups),
-                    ),
-                )
-
-        # Сортируем по убыванию количества отжиманий
-        stats_list.sort(key=lambda x: x.total_count, reverse=True)
+            if not push_ups:
+                continue  # Показываем только тех, у кого есть подходы
+            user = user_map[user_oid]
+            total_count = sum(p.count for p in push_ups)
+            stats_list.append(
+                UserDailyStats(
+                    username=user.username,
+                    total_count=total_count,
+                    push_ups_count=len(push_ups),
+                ),
+            )
         return stats_list

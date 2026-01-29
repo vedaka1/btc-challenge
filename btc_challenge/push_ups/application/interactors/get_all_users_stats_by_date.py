@@ -4,6 +4,7 @@ from uuid import UUID
 
 from btc_challenge.push_ups.domain.entity import PushUp
 from btc_challenge.push_ups.domain.repository import IPushUpRepository
+from btc_challenge.shared.date import to_moscow
 from btc_challenge.users.domain.repository import IUserRepository
 
 
@@ -34,8 +35,8 @@ class GetAllUsersStatsByDateInteractor:
         user_oids = [user.oid for user in users]
         all_push_ups = await self.push_up_repository.get_by_user_oids_and_date(
             user_oids=user_oids,
-            begin_date=begin_date,
-            end_date=end_date,
+            begin_date=to_moscow(begin_date),
+            end_date=to_moscow(end_date),
         )
 
         # Группируем подходы по пользователям

@@ -61,7 +61,7 @@ class PushUpRepository(IPushUpRepository):
             .where(PushUpORM.user_oid.in_(user_oids))
             .where(PushUpORM.created_at >= begin_date)
             .where(PushUpORM.created_at <= end_date)
-            .order_by(PushUpORM.created_at.desc())
+            .order_by(PushUpORM.created_at.asc())
         )
         cursor = await self._session.execute(query)
         rows = cursor.scalars().all()

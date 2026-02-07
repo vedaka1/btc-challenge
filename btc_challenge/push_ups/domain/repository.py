@@ -30,3 +30,6 @@ class IPushUpRepository(ABC):
         begin_date: datetime,
         end_date: datetime,
     ) -> list[PushUp]: ...
+
+    @abstractmethod
+    async def get_missed_days(self, user_oid: UUID, event_started_at: datetime) -> list[datetime]: ...

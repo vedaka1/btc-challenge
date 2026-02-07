@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from aiogram import Bot, F, Router, filters, types
 from aiogram.fsm.context import FSMContext
@@ -9,7 +9,9 @@ from punq import Container
 from btc_challenge.chats.adapters.sqlite.repository import ChatRepository
 from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.push_ups.adapters.sqlite.repository import PushUpRepository
+from btc_challenge.push_ups.application.interactors.check_push_ups import CheckDailyPushUpsInteractor
 from btc_challenge.push_ups.application.interactors.create import CreatePushUpInteractor
+from btc_challenge.push_ups.application.interactors.create_penalty import CreatePushUpPenaltyInteractor
 from btc_challenge.push_ups.application.interactors.get_all_users_stats import GetAllUsersStatsInteractor
 from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date import (
     GetAllUsersStatsByDateInteractor,
@@ -42,7 +44,7 @@ async def cmd_cancel(message: types.Message, state: FSMContext) -> None:
 
 
 @push_ups_router.message(filters.Command(Commands.ADD, Commands.PUSH_UP))
-async def cmd_add_push_up(message: types.Message, state: FSMContext, user: User | None) -> None:
+async def cmd_add_push_up(message: types.Message, state: FSMContext, user: User) -> None:
     if not await require_verified(message, user):
         return
 
@@ -53,35 +55,18 @@ async def cmd_add_push_up(message: types.Message, state: FSMContext, user: User 
 
     # Проверяем участие в активных событиях
     async with get_async_session() as session:
-        event_repository = EventRepository(session)
-        push_up_repository = PushUpRepository(session)
-        now = DatetimeProvider.provide()
-        active_events = await event_repository.get_active_events_by_participant(user.oid, now)
-
-        if not active_events:
-            await message.answer(
-                f'❌ Ты не участвуешь ни в одном активном ивенте!\n\n'
-                f'Используй /{Commands.ACTIVE_EVENTS} чтобы посмотреть доступные ивенты.',
-            )
-            return
-
-        # Используем day_number из активного события
-        event = active_events[0]
-        count = event.day_number
-
-        begin_date, end_date = get_moscow_day_range()
-        push_ups = await push_up_repository.get_by_user_oid_and_date(
-            user_oid=user.oid,
-            begin_date=begin_date,
-            end_date=end_date,
+        interactor = CheckDailyPushUpsInteractor(
+            event_repository=EventRepository(session),
+            push_up_repository=PushUpRepository(session),
         )
-        if push_ups:
-            await message.answer('❌ Ты уже отжимался сегодня')
+        result = await interactor.execute(user)
+        if result.count is None:
+            await message.answer(result.msg)
             return
 
-    await state.update_data(count=count)
+    await state.update_data(count=result.count, today_count=result.today_count, penalty_days=result.penalty_days)
     await state.set_state(PushUpStates.waiting_for_video)
-    await message.answer(f'Отправь видео или кружок с отжиманиями: {count}')
+    await message.answer(result.msg)
 
 
 @push_ups_router.message(PushUpStates.waiting_for_video, F.video | F.video_note)
@@ -102,6 +87,8 @@ async def process_video(
     user_id = message.from_user.id
     data = await state.get_data()
     count = data.get('count', 0)
+    today_count = data.get('today_count', count)
+    penalty_days: list[tuple[date, int]] = data.get('penalty_days', [])
 
     if count <= 0:
         await message.answer('Ошибка: некорректное количество отжиманий')
@@ -120,14 +107,27 @@ async def process_video(
     else:
         return
 
-    # Сохраняем в БД только file_id
-    interactor: CreatePushUpInteractor = container.resolve(CreatePushUpInteractor)
-    await interactor.execute(
-        telegram_id=user_id,
-        telegram_file_id=file.file_id,
-        is_video_note=is_video_note,
-        count=count,
-    )
+    # Сохраняем запись за сегодня
+    if today_count > 0:
+        interactor: CreatePushUpInteractor = container.resolve(CreatePushUpInteractor)
+        await interactor.execute(
+            telegram_id=user_id,
+            telegram_file_id=file.file_id,
+            is_video_note=is_video_note,
+            count=today_count,
+        )
+
+    else:
+        # Сохраняем записи за каждый пропущенный день
+        for created_at, penalty_count in penalty_days:
+            interactor: CreatePushUpPenaltyInteractor = container.resolve(CreatePushUpPenaltyInteractor)
+            await interactor.execute(
+                telegram_id=user_id,
+                telegram_file_id=file.file_id,
+                is_video_note=is_video_note,
+                count=penalty_count,
+                created_at=datetime.combine(created_at, datetime.max.time()) - timedelta(hours=3),
+            )
 
     await state.clear()
     await message.answer(f'Подход сохранен! {count} {pluralize_pushups(count)} 💪')

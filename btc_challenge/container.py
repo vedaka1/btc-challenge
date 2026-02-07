@@ -14,6 +14,7 @@ from btc_challenge.events.application.interactors.join import JoinEventInteracto
 from btc_challenge.events.domain.repository import IEventRepository
 from btc_challenge.push_ups.adapters.sqlite.repository import PushUpRepository
 from btc_challenge.push_ups.application.interactors.create import CreatePushUpInteractor
+from btc_challenge.push_ups.application.interactors.create_penalty import CreatePushUpPenaltyInteractor
 from btc_challenge.push_ups.application.interactors.get_all_users_stats import GetAllUsersStatsInteractor
 from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date import (
     GetAllUsersStatsByDateInteractor,
@@ -62,6 +63,7 @@ def build_container() -> Container:
     container.register(CreateChatInteractor)
     container.register(DeactivateChatInteractor)
     container.register(GetAllChatsInteractor)
+    container.register(CreatePushUpPenaltyInteractor)
 
     return container
 

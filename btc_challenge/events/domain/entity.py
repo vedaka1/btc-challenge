@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from btc_challenge.shared.date import to_moscow
-from btc_challenge.shared.providers import DatetimeProvider
+from btc_challenge.shared.providers import DatetimeProvider, TimeZone
 
 
 @dataclass
@@ -58,3 +58,8 @@ class Event:
     @property
     def str_info(self) -> str:
         return f'📌 Ивент: {self.title}\n📅 День {self.day_number}'
+
+    def get_day_number_by_date(self, current_date: datetime) -> int:
+        return (
+            current_date.astimezone(TimeZone.MOSCOW).date() - self.start_at.astimezone(TimeZone.MOSCOW).date()
+        ).days + 1

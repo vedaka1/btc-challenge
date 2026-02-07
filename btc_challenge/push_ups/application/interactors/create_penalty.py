@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from btc_challenge.push_ups.domain.entity import PushUp
 from btc_challenge.push_ups.domain.repository import IPushUpRepository
@@ -8,7 +9,7 @@ from btc_challenge.users.domain.repository import IUserRepository
 
 
 @dataclass
-class CreatePushUpInteractor:
+class CreatePushUpPenaltyInteractor:
     push_up_repository: IPushUpRepository
     user_repository: IUserRepository
     commiter: ICommiter
@@ -18,6 +19,7 @@ class CreatePushUpInteractor:
         telegram_id: int,
         telegram_file_id: str,
         is_video_note: bool,
+        created_at: datetime,
         count: int = 0,
     ) -> PushUp:
         if count <= 0:
@@ -40,6 +42,8 @@ class CreatePushUpInteractor:
             is_video_note=is_video_note,
             count=count,
         )
+        push_up.created_at = created_at
+        push_up.updated_at = created_at
         await self.push_up_repository.create(push_up)
 
         await self.commiter.commit()

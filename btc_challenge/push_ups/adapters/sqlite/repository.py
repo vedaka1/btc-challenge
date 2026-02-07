@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -8,6 +8,7 @@ from btc_challenge.push_ups.adapters.sqlite.mapper import SqlitePushUpMapper
 from btc_challenge.push_ups.adapters.sqlite.model import PushUpORM
 from btc_challenge.push_ups.domain.entity import PushUp
 from btc_challenge.push_ups.domain.repository import IPushUpRepository
+from btc_challenge.shared.providers import DatetimeProvider, TimeZone
 
 
 class PushUpRepository(IPushUpRepository):
@@ -87,3 +88,26 @@ class PushUpRepository(IPushUpRepository):
         cursor = await self._session.execute(query)
         rows = cursor.scalars().all()
         return [self._mapper.to_entity(row) for row in rows]
+
+    async def get_missed_days(self, user_oid: UUID, event_started_at: datetime) -> list[datetime]:
+        now = DatetimeProvider.provide(TimeZone.MOSCOW)
+        start_moscow = event_started_at.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_moscow = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        all_dates: list[datetime] = []
+        current = start_moscow
+        while current < today_moscow:
+            all_dates.append(current)
+            current += timedelta(days=1)
+
+        if not all_dates:
+            return []
+
+        push_ups = await self.get_by_user_oid_and_date(
+            user_oid=user_oid,
+            begin_date=event_started_at.astimezone(UTC),
+            end_date=today_moscow.astimezone(UTC),
+        )
+
+        days_with_push_ups = {p.created_at.astimezone(TimeZone.MOSCOW).date() for p in push_ups}
+        return [d for d in all_dates if d.date() not in days_with_push_ups]

@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from btc_challenge.shared.providers import DatetimeProvider
+
 
 @dataclass
 class PushUp:
@@ -14,8 +16,8 @@ class PushUp:
     updated_at: datetime
 
     @classmethod
-    def create(cls, user_oid: UUID, telegram_file_id: str, is_video_note: bool, count: int = 0) -> "PushUp":
-        now = datetime.now()
+    def create(cls, user_oid: UUID, telegram_file_id: str, is_video_note: bool, count: int = 0) -> 'PushUp':
+        now = DatetimeProvider.provide()
         return cls(
             oid=uuid4(),
             user_oid=user_oid,

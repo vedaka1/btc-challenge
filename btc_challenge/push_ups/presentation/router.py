@@ -17,10 +17,11 @@ from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date 
 from btc_challenge.push_ups.application.interactors.get_daily_stats import GetDailyStatsInteractor
 from btc_challenge.push_ups.presentation.states import PushUpStates
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
-from btc_challenge.shared.date import get_current_day_range
+from btc_challenge.shared.date import get_moscow_day_range
 from btc_challenge.shared.errors import ObjectNotFoundError
 from btc_challenge.shared.presentation.checks import require_verified
 from btc_challenge.shared.presentation.commands import Commands
+from btc_challenge.shared.providers import DatetimeProvider
 from btc_challenge.shared.utils import pluralize_pushups
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 from btc_challenge.users.domain.entity import User
@@ -33,11 +34,11 @@ logger = logging.getLogger(__name__)
 async def cmd_cancel(message: types.Message, state: FSMContext) -> None:
     current_state = await state.get_state()
     if current_state is None:
-        await message.answer("Нечего отменять")
+        await message.answer('Нечего отменять')
         return
 
     await state.clear()
-    await message.answer("Отменил")
+    await message.answer('Отменил')
 
 
 @push_ups_router.message(filters.Command(Commands.ADD, Commands.PUSH_UP))
@@ -46,21 +47,21 @@ async def cmd_add_push_up(message: types.Message, state: FSMContext, user: User 
         return
 
     # Запрещаем создание отжиманий в группах
-    if message.chat.type in ("group", "supergroup"):
-        await message.answer("❌ Добавление отжиманий доступно только в личных сообщениях с ботом")
+    if message.chat.type in ('group', 'supergroup'):
+        await message.answer('❌ Добавление отжиманий доступно только в личных сообщениях с ботом')
         return
 
     # Проверяем участие в активных событиях
     async with get_async_session() as session:
         event_repository = EventRepository(session)
         push_up_repository = PushUpRepository(session)
-        now = datetime.now()
+        now = DatetimeProvider.provide()
         active_events = await event_repository.get_active_events_by_participant(user.oid, now)
 
         if not active_events:
             await message.answer(
-                f"❌ Ты не участвуешь ни в одном активном ивенте!\n\n"
-                f"Используй /{Commands.ACTIVE_EVENTS} чтобы посмотреть доступные ивенты.",
+                f'❌ Ты не участвуешь ни в одном активном ивенте!\n\n'
+                f'Используй /{Commands.ACTIVE_EVENTS} чтобы посмотреть доступные ивенты.',
             )
             return
 
@@ -68,19 +69,19 @@ async def cmd_add_push_up(message: types.Message, state: FSMContext, user: User 
         event = active_events[0]
         count = event.day_number
 
-        begin_date, end_date = get_current_day_range()
+        begin_date, end_date = get_moscow_day_range()
         push_ups = await push_up_repository.get_by_user_oid_and_date(
             user_oid=user.oid,
             begin_date=begin_date,
             end_date=end_date,
         )
         if push_ups:
-            await message.answer("❌ Ты уже отжимался сегодня")
+            await message.answer('❌ Ты уже отжимался сегодня')
             return
 
     await state.update_data(count=count)
     await state.set_state(PushUpStates.waiting_for_video)
-    await message.answer(f"Отправь видео или кружок с отжиманиями: {count}")
+    await message.answer(f'Отправь видео или кружок с отжиманиями: {count}')
 
 
 @push_ups_router.message(PushUpStates.waiting_for_video, F.video | F.video_note)
@@ -100,10 +101,10 @@ async def process_video(
 
     user_id = message.from_user.id
     data = await state.get_data()
-    count = data.get("count", 0)
+    count = data.get('count', 0)
 
     if count <= 0:
-        await message.answer("Ошибка: некорректное количество отжиманий")
+        await message.answer('Ошибка: некорректное количество отжиманий')
         await state.clear()
         return
 
@@ -129,7 +130,7 @@ async def process_video(
     )
 
     await state.clear()
-    await message.answer(f"Подход сохранен! {count} {pluralize_pushups(count)} 💪")
+    await message.answer(f'Подход сохранен! {count} {pluralize_pushups(count)} 💪')
 
     # Отправляем уведомления участникам событий
     await _notify_event_participants(
@@ -143,7 +144,7 @@ async def process_video(
 
 @push_ups_router.message(PushUpStates.waiting_for_video)
 async def wrong_video_type(message: types.Message) -> None:
-    await message.answer("Отправь видео или кружок с подтверждением")
+    await message.answer('Отправь видео или кружок с подтверждением')
 
 
 @push_ups_router.message(filters.Command(Commands.INFO))
@@ -160,11 +161,11 @@ async def cmd_info(message: types.Message, container: Container, user: User | No
     try:
         stats = await interactor.execute(telegram_id=user_id)
     except ObjectNotFoundError:
-        await message.answer(f"Сначала нажми /{Commands.START}")
+        await message.answer(f'Сначала нажми /{Commands.START}')
         return
 
     if stats.push_ups_count == 0:
-        await message.answer("Сегодня еще не было подходов")
+        await message.answer('Сегодня еще не было подходов')
         return
 
     # Получаем статистику за ивент
@@ -175,7 +176,7 @@ async def cmd_info(message: types.Message, container: Container, user: User | No
 
         if active_event:
             push_up_repository = PushUpRepository(session)
-            now = datetime.now()
+            now = DatetimeProvider.provide()
             event_begin = active_event.start_at.replace(hour=0, minute=0, second=0, microsecond=0)
             event_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
 
@@ -187,30 +188,32 @@ async def cmd_info(message: types.Message, container: Container, user: User | No
             event_total = sum(p.count for p in event_pushups)
 
     # Отправляем статистику
-    stats_text = f"📊 Статистика за сегодня:\n\nВсего отжиманий: {stats.total_count}\nПодходов: {stats.push_ups_count}"
+    stats_text = f'📊 Статистика за сегодня:\n\nВсего отжиманий: {stats.total_count}\nПодходов: {stats.push_ups_count}'
     if active_event and event_total > 0:
-        stats_text += f"\n\n🔥 За время ивента: {event_total}"
+        stats_text += f'\n\n🔥 За время ивента: {event_total}'
     await message.answer(stats_text)
 
     # Отправляем видео
     for count, file_id, is_video_note in stats.videos:
         if is_video_note:
             await message.answer_video_note(video_note=file_id)
-            await message.answer(f"Подход: {count} {pluralize_pushups(count)}")
+            await message.answer(f'Подход: {count} {pluralize_pushups(count)}')
         else:
             await message.answer_video(
                 video=file_id,
-                caption=f"Подход: {count} {pluralize_pushups(count)}",
+                caption=f'Подход: {count} {pluralize_pushups(count)}',
             )
 
 
 @push_ups_router.message(filters.Command(Commands.STATS, Commands.LEADERBOARD))
 async def cmd_stats(message: types.Message, container: Container) -> None:
+    # Получаем начало и конец сегодняшнего дня по Москве
+    begin_date, end_date = get_moscow_day_range()
     interactor: GetAllUsersStatsInteractor = container.resolve(GetAllUsersStatsInteractor)
-    stats_list = await interactor.execute()
+    stats_list = await interactor.execute(begin_date, end_date)
 
     if not stats_list:
-        await message.answer("Сегодня еще никто не отжимался")
+        await message.answer('Сегодня еще никто не отжимался')
         return
 
     # Получаем статистику за ивент
@@ -222,7 +225,7 @@ async def cmd_stats(message: types.Message, container: Container) -> None:
 
         if active_event:
             push_up_repository = PushUpRepository(session)
-            now = datetime.now()
+            now = DatetimeProvider.provide()
             event_begin = active_event.start_at.replace(hour=0, minute=0, second=0, microsecond=0)
             event_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
 
@@ -247,19 +250,19 @@ async def cmd_stats(message: types.Message, container: Container) -> None:
                     total_event_pushups += push_up.count
 
     # Формируем текст с рейтингом
-    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
-    stats_text = "🏆 Статистика за сегодня:\n\n"
+    medals = {1: '🥇', 2: '🥈', 3: '🥉'}
+    stats_text = '🏆 Статистика за сегодня:\n\n'
     if active_event:
         total_today = sum(stats.total_count for stats in stats_list)
-        stats_text += f"💪 Всего за день: {total_today}\n"
-        stats_text += f"🔥 Всего за ивент: {total_event_pushups}\n\n"
+        stats_text += f'💪 Всего за день: {total_today}\n'
+        stats_text += f'🔥 Всего за ивент: {total_event_pushups}\n\n'
 
     for idx, stats in enumerate(stats_list, start=1):
-        medal = medals.get(idx, f"{idx}.")
-        event_info = ""
+        medal = medals.get(idx, f'{idx}.')
+        event_info = ''
         if active_event and stats.username in event_stats:
-            event_info = f" (за ивент: {event_stats[stats.username]})"
-        stats_text += f"{medal} @{stats.username}\nОтжиманий: {stats.total_count} ({stats.push_ups_count} подходов){event_info}\n\n"
+            event_info = f' (за ивент: {event_stats[stats.username]})'
+        stats_text += f'{medal} @{stats.username}\nОтжиманий: {stats.total_count} ({stats.push_ups_count} подходов){event_info}\n\n'
 
     await message.answer(stats_text)
 
@@ -270,20 +273,20 @@ async def cmd_history(message: types.Message, user: User | None) -> None:
         return
 
     # Создаем кнопки для выбора последних дней
-    now = datetime.now()
+    now = DatetimeProvider.provide()
     buttons = []
     for days_ago in range(7):
         target_date = now - timedelta(days=days_ago)
-        label = "Сегодня" if days_ago == 0 else ("Вчера" if days_ago == 1 else target_date.strftime("%d.%m.%Y"))
-        buttons.append([InlineKeyboardButton(text=label, callback_data=f"history:{days_ago}")])
+        label = 'Сегодня' if days_ago == 0 else ('Вчера' if days_ago == 1 else target_date.strftime('%d.%m.%Y'))
+        buttons.append([InlineKeyboardButton(text=label, callback_data=f'history:{days_ago}')])
 
-    buttons.append([InlineKeyboardButton(text="Другая дата", callback_data="history:custom")])
+    buttons.append([InlineKeyboardButton(text='Другая дата', callback_data='history:custom')])
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer("Выбери день для просмотра статистики:", reply_markup=keyboard)
+    await message.answer('Выбери день для просмотра статистики:', reply_markup=keyboard)
 
 
-@push_ups_router.callback_query(F.data.startswith("history:"))
+@push_ups_router.callback_query(F.data.startswith('history:'))
 async def process_history_callback(
     callback: types.CallbackQuery,
     state: FSMContext,
@@ -297,21 +300,21 @@ async def process_history_callback(
         await callback.answer()
         return
 
-    days_str = callback.data.split(":")[1]
+    days_str = callback.data.split(':')[1]
 
-    if days_str == "custom":
+    if days_str == 'custom':
         await state.set_state(PushUpStates.waiting_for_date)
-        await callback.message.answer("Введи дату в формате ДД.ММ.ГГГГ (например, 20.01.2026):")
+        await callback.message.answer('Введи дату в формате ДД.ММ.ГГГГ (например, 20.01.2026):')
         await callback.answer()
         return
 
     try:
         days_ago = int(days_str)
     except ValueError:
-        await callback.answer("Некорректные данные", show_alert=True)
+        await callback.answer('Некорректные данные', show_alert=True)
         return
 
-    target_date = datetime.now() - timedelta(days=days_ago)
+    target_date = DatetimeProvider.provide() - timedelta(days=days_ago)
 
     await _show_stats_for_date(callback.message, container, target_date)
     await callback.answer()
@@ -329,14 +332,14 @@ async def process_custom_date(
         return
 
     if not message.text:
-        await message.answer("Введи дату в формате ДД.ММ.ГГГГ")
+        await message.answer('Введи дату в формате ДД.ММ.ГГГГ')
         return
 
     try:
-        target_date = datetime.strptime(message.text, "%d.%m.%Y")
+        target_date = datetime.strptime(message.text, '%d.%m.%Y')
     except ValueError:
         await message.answer(
-            "Неверный формат даты. Используй формат ДД.ММ.ГГГГ (например, 20.01.2026)",
+            'Неверный формат даты. Используй формат ДД.ММ.ГГГГ (например, 20.01.2026)',
         )
         return
 
@@ -346,7 +349,7 @@ async def process_custom_date(
 
 @push_ups_router.message(PushUpStates.waiting_for_date)
 async def wrong_date_type(message: types.Message) -> None:
-    await message.answer("Введи дату текстом в формате ДД.ММ.ГГГГ")
+    await message.answer('Введи дату текстом в формате ДД.ММ.ГГГГ')
 
 
 async def _show_stats_for_date(
@@ -358,33 +361,33 @@ async def _show_stats_for_date(
     interactor: GetAllUsersStatsByDateInteractor = container.resolve(GetAllUsersStatsByDateInteractor)
     stats_list = await interactor.execute(date=target_date)
 
-    date_str = target_date.strftime("%d.%m.%Y")
+    date_str = target_date.strftime('%d.%m.%Y')
 
     if not stats_list:
-        await message.answer(f"📊 Статистика за {date_str}:\n\nВ этот день никто не отжимался")
+        await message.answer(f'📊 Статистика за {date_str}:\n\nВ этот день никто не отжимался')
         return
 
     # Формируем текст с рейтингом
-    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
-    stats_text = f"🏆 Статистика за {date_str}:\n\n"
+    medals = {1: '🥇', 2: '🥈', 3: '🥉'}
+    stats_text = f'🏆 Статистика за {date_str}:\n\n'
     for idx, stats in enumerate(stats_list, start=1):
-        medal = medals.get(idx, f"{idx}.")
-        stats_text += f"{medal} @{stats.username}\nОтжиманий: {stats.total_count} ({stats.push_ups_count} подходов)\n\n"
+        medal = medals.get(idx, f'{idx}.')
+        stats_text += f'{medal} @{stats.username}\nОтжиманий: {stats.total_count} ({stats.push_ups_count} подходов)\n\n'
 
     await message.answer(stats_text)
 
     # Отправляем видео каждого участника
     for stats in stats_list:
         if stats.videos:
-            await message.answer(f"📹 Видео @{stats.username}:")
+            await message.answer(f'📹 Видео @{stats.username}:')
             for count, file_id, is_video_note in stats.videos:
                 if is_video_note:
                     await message.answer_video_note(video_note=file_id)
-                    await message.answer(f"@{stats.username}: {count} {pluralize_pushups(count)}")
+                    await message.answer(f'@{stats.username}: {count} {pluralize_pushups(count)}')
                 else:
                     await message.answer_video(
                         video=file_id,
-                        caption=f"@{stats.username}: {count} {pluralize_pushups(count)}",
+                        caption=f'@{stats.username}: {count} {pluralize_pushups(count)}',
                     )
 
 
@@ -401,7 +404,7 @@ async def _notify_event_participants(
             event_repository = EventRepository(session)
             chat_repository = ChatRepository(session)
 
-            now = datetime.now()
+            now = DatetimeProvider.provide()
             # Get active events where user is a participant
             active_events = await event_repository.get_active_events_by_participant(user.oid, now)
 
@@ -415,14 +418,14 @@ async def _notify_event_participants(
 
             for event in active_events:
                 notification_text = (
-                    f"🎉 @{user.username} выполнил дневную задачу!\n\n"
-                    f"{event.str_info}\n"
-                    f"💪 {count} {pluralize_pushups(count)}"
+                    f'🎉 @{user.username} выполнил дневную задачу!\n\n'
+                    f'{event.str_info}\n'
+                    f'💪 {count} {pluralize_pushups(count)}'
                 )
 
                 # Send to all active group chats
                 for chat in active_chats:
-                    logger.info(f"Sending notification to chat {chat.title} with id {chat.telegram_chat_id}")
+                    logger.info(f'Sending notification to chat {chat.title} with id {chat.telegram_chat_id}')
                     try:
                         if is_video_note:
                             await bot.send_video_note(
@@ -441,8 +444,8 @@ async def _notify_event_participants(
                             )
                     except Exception as e:
                         # Group might have removed the bot or bot doesn't have permissions
-                        logger.warning(f"Failed to send notification to chat {chat.telegram_chat_id}: {e}")
+                        logger.warning(f'Failed to send notification to chat {chat.telegram_chat_id}: {e}')
 
     except Exception as e:
         # Don't fail the main flow if notifications fail
-        logger.error(f"Failed to send notifications: {e}")
+        logger.error(f'Failed to send notifications: {e}')

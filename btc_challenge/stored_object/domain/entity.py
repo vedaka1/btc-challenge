@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from btc_challenge.shared.providers import DatetimeProvider
+
 
 @dataclass
 class StoredObject:
@@ -14,8 +16,8 @@ class StoredObject:
     updated_at: datetime
 
     @classmethod
-    def create(cls, file_name: str, storage_key: str, size: int, extension: str) -> "StoredObject":
-        now = datetime.now()
+    def create(cls, file_name: str, storage_key: str, size: int, extension: str) -> 'StoredObject':
+        now = DatetimeProvider.provide()
         return cls(
             oid=uuid4(),
             file_name=file_name,

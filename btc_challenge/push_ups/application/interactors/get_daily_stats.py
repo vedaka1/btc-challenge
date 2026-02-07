@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from datetime import datetime
 
 from btc_challenge.push_ups.domain.repository import IPushUpRepository
+from btc_challenge.shared.date import get_moscow_day_range
 from btc_challenge.shared.errors import ObjectNotFoundError
 from btc_challenge.users.domain.repository import IUserRepository
 
@@ -21,13 +21,11 @@ class GetDailyStatsInteractor:
     async def execute(self, telegram_id: int) -> DailyStats:
         user = await self.user_repository.get_by_telegram_id(telegram_id)
         if not user:
-            msg = f"User with telegram_id {telegram_id} not found"
+            msg = f'User with telegram_id {telegram_id} not found'
             raise ObjectNotFoundError(msg)
 
-        # Получаем начало и конец сегодняшнего дня
-        now = datetime.now()
-        begin_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+        # Получаем начало и конец сегодняшнего дня по Москве
+        begin_date, end_date = get_moscow_day_range()
 
         # Получаем все подходы за сегодня
         push_ups = await self.push_up_repository.get_by_user_oid_and_date(

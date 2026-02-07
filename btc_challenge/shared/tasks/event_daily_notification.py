@@ -1,12 +1,13 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from aiogram import Bot
 
 from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.events.domain.entity import Event
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
+from btc_challenge.shared.providers import DatetimeProvider
 from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
 from btc_challenge.shared.utils import create_event_notification_text
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
@@ -34,7 +35,7 @@ async def send_event_daily_notification_to_participant(
 
 async def send_event_daily_notification(bot: Bot) -> None:
     """Send daily notification to event participants and groups at 5:00 about required pushups."""
-    now = datetime.now()
+    now = DatetimeProvider.provide()
 
     async with get_async_session() as session:
         event_repository = EventRepository(session)
@@ -59,7 +60,7 @@ async def event_daily_notification_task(bot: Bot) -> None:
     while True:
         try:
             # Calculate next 5:00 UTC
-            now = datetime.now()
+            now = DatetimeProvider.provide()
             next_notification_time = now.replace(hour=5, minute=0, second=0, microsecond=0)
             if now >= next_notification_time:
                 next_notification_time += timedelta(days=1)
@@ -69,5 +70,5 @@ async def event_daily_notification_task(bot: Bot) -> None:
 
             await send_event_daily_notification(bot)
         except Exception as e:
-            logger.error("Error in event_daily_notification_task: %s", e)
+            logger.error('Error in event_daily_notification_task: %s', e)
             await asyncio.sleep(60)

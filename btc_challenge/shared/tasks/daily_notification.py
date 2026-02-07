@@ -10,6 +10,7 @@ from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date 
     GetAllUsersStatsByDateInteractor,
 )
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
+from btc_challenge.shared.providers import DatetimeProvider
 from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 
@@ -25,11 +26,10 @@ async def send_daily_notification(bot: Bot, target_date: datetime) -> None:
             user_repository=UserRepository(session),
         )
         stats_list = await interactor.execute(date=target_date)
-
         if not stats_list:
             return
 
-        date_str = target_date.strftime("%d.%m.%Y")
+        date_str = target_date.strftime('%d.%m.%Y')
 
         # Подсчитываем общее количество отжиманий за день
         total_pushups = sum(stats.total_count for stats in stats_list)
@@ -74,28 +74,28 @@ async def send_daily_notification(bot: Bot, target_date: datetime) -> None:
         inactive_users = [user.username for user in all_users if user.username not in participant_usernames]
 
         # Формируем текст с рейтингом
-        medals = {1: "🥇", 2: "🥈", 3: "🥉"}
-        stats_text = f"🏆 Отчет за {date_str}:\n\n"
-        stats_text += f"💪 Всего за день: {total_pushups}\n"
+        medals = {1: '🥇', 2: '🥈', 3: '🥉'}
+        stats_text = f'🏆 Отчет за {date_str}:\n\n'
+        stats_text += f'💪 Всего за день: {total_pushups}\n'
         if active_event:
-            stats_text += f"🔥 Всего с начала ивента: {total_event_pushups}\n"
-        stats_text += "\n"
+            stats_text += f'🔥 Всего с начала ивента: {total_event_pushups}\n'
+        stats_text += '\n'
 
         for idx, stats in enumerate(stats_list, start=1):
-            medal = medals.get(idx, f"{idx}.")
-            event_info = ""
+            medal = medals.get(idx, f'{idx}.')
+            event_info = ''
             if active_event and stats.username in event_stats:
-                event_info = f" (всего в ивенте: {event_stats[stats.username]})"
+                event_info = f' (всего в ивенте: {event_stats[stats.username]})'
             stats_text += (
-                f"{medal} @{stats.username}\n"
-                f"Отжиманий: {stats.total_count} ({stats.push_ups_count} подходов){event_info}\n\n"
+                f'{medal} @{stats.username}\n'
+                f'Отжиманий: {stats.total_count} ({stats.push_ups_count} подходов){event_info}\n\n'
             )
 
         # Добавляем список неактивных
         if inactive_users:
-            stats_text += "❌ Не выполнили отжимания:\n"
+            stats_text += '❌ Не выполнили отжимания:\n'
             for username in inactive_users:
-                stats_text += f"@{username}\n"
+                stats_text += f'@{username}\n'
 
         # Send report to groups
         await send_notification_to_groups(bot, session, stats_text)
@@ -108,19 +108,19 @@ async def daily_notification_task(bot: Bot) -> None:
     while True:
         try:
             # Calculate next 00:05 UTC
-            now = datetime.now()
+            now = DatetimeProvider.provide()
             next_notification_time = now.replace(hour=21, minute=5, second=0, microsecond=0)
             if now >= next_notification_time:
                 next_notification_time += timedelta(days=1)
 
             sleep_time = (next_notification_time - now).total_seconds()
-            logger.info("Next daily notification at %s in %s seconds", next_notification_time, sleep_time)
+            logger.info('Next daily notification at %s in %s seconds', next_notification_time, sleep_time)
             await asyncio.sleep(sleep_time)
 
             # Send report for previous day
-            target_date = datetime.now()
-            logger.info("Sending daily notification for %s", target_date.strftime("%d.%m.%Y"))
+            target_date = DatetimeProvider.provide()
+            logger.info('Sending daily notification for %s', target_date.strftime('%d.%m.%Y'))
             await send_daily_notification(bot, target_date)
         except Exception as e:
-            logger.error("Error in daily_notification_task: %s", e)
+            logger.error('Error in daily_notification_task: %s', e)
             await asyncio.sleep(60)

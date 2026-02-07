@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import timedelta
 from uuid import UUID
 
 from aiogram import Bot
@@ -10,6 +10,7 @@ from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.push_ups.adapters.sqlite.repository import PushUpRepository
 from btc_challenge.push_ups.domain.entity import PushUp
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
+from btc_challenge.shared.providers import DatetimeProvider
 from btc_challenge.shared.utils import pluralize_pushups
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 
@@ -23,7 +24,7 @@ async def send_pushup_reminder_to_inactive_participants(bot: Bot) -> None:
         user_repository = UserRepository(session)
         push_up_repository = PushUpRepository(session)
 
-        now = datetime.now()
+        now = DatetimeProvider.provide()
         begin_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = begin_date + timedelta(days=1) - timedelta(microseconds=1)
 
@@ -56,19 +57,19 @@ async def send_pushup_reminder_to_inactive_participants(bot: Bot) -> None:
 
                 if not has_completed:
                     reminder_text = (
-                        f"⏰ Напоминание!\n\n"
-                        f"{event.str_info}\n\n"
-                        f"Ты еще не загрузил {required_count} {pluralize_pushups(required_count)} за сегодня.\n"
-                        f"Не забудь выполнить задание!"
+                        f'⏰ Напоминание!\n\n'
+                        f'{event.str_info}\n\n'
+                        f'Ты еще не загрузил {required_count} {pluralize_pushups(required_count)} за сегодня.\n'
+                        f'Не забудь выполнить задание!'
                     )
                     try:
                         await bot.send_message(
                             chat_id=participant.telegram_id,
                             text=reminder_text,
                         )
-                        logger.info("Sent reminder to %s", participant.username)
+                        logger.info('Sent reminder to %s', participant.username)
                     except Exception as e:
-                        logger.warning("Failed to send reminder to %s: %s", participant.username, e)
+                        logger.warning('Failed to send reminder to %s: %s', participant.username, e)
 
 
 async def event_reminder_task(bot: Bot) -> None:
@@ -76,19 +77,19 @@ async def event_reminder_task(bot: Bot) -> None:
     while True:
         try:
             # Calculate next 17:00 UTC
-            now = datetime.now()
+            now = DatetimeProvider.provide()
             next_reminder_time = now.replace(hour=17, minute=0, second=0, microsecond=0)
             if now >= next_reminder_time:
                 next_reminder_time += timedelta(days=1)
 
             sleep_seconds = (next_reminder_time - now).total_seconds()
-            logger.info("Next reminder at %s UTC, sleeping %ss", next_reminder_time, sleep_seconds)
+            logger.info('Next reminder at %s UTC, sleeping %ss', next_reminder_time, sleep_seconds)
 
             await asyncio.sleep(sleep_seconds)
 
-            logger.info("Sending pushup reminders to inactive participants")
+            logger.info('Sending pushup reminders to inactive participants')
             await send_pushup_reminder_to_inactive_participants(bot)
 
         except Exception as e:
-            logger.error("Error in event_reminder_task: %s", e)
+            logger.error('Error in event_reminder_task: %s', e)
             await asyncio.sleep(60)

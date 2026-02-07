@@ -4,6 +4,7 @@ from uuid import UUID
 from btc_challenge.events.domain.entity import Event
 from btc_challenge.events.domain.repository import IEventRepository
 from btc_challenge.shared.application.commiter import ICommiter
+from btc_challenge.shared.providers import DatetimeProvider
 
 
 class CreateEventInteractor:
@@ -20,18 +21,18 @@ class CreateEventInteractor:
     ) -> Event:
         # Validate inputs
         if not title or not title.strip():
-            msg = "Title cannot be empty"
+            msg = 'Title cannot be empty'
             raise ValueError(msg)
 
         if not description or not description.strip():
-            msg = "Description cannot be empty"
+            msg = 'Description cannot be empty'
             raise ValueError(msg)
 
         # Validate start date
-        now = datetime.now()
+        now = DatetimeProvider.provide()
         min_start_time = now + timedelta(minutes=2)
         if start_at < min_start_time:
-            msg = "Дата начала должна быть минимум через 2 минуты"
+            msg = 'Дата начала должна быть минимум через 2 минуты'
             raise ValueError(msg)
 
         # Complete all uncompleted events before creating a new one

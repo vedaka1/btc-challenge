@@ -5,7 +5,7 @@ from uuid import UUID
 
 from btc_challenge.push_ups.domain.entity import PushUp
 from btc_challenge.push_ups.domain.repository import IPushUpRepository
-from btc_challenge.shared.date import to_moscow
+from btc_challenge.shared.date import get_moscow_day_range
 from btc_challenge.users.domain.repository import IUserRepository
 
 
@@ -21,12 +21,7 @@ class GetAllUsersStatsInteractor:
     push_up_repository: IPushUpRepository
     user_repository: IUserRepository
 
-    async def execute(self) -> list[UserDailyStats]:
-        # Получаем начало и конец сегодняшнего дня
-        now = datetime.now()
-        begin_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
-
+    async def execute(self, begin_date: datetime, end_date: datetime) -> list[UserDailyStats]:
         # Получаем всех пользователей
         users = await self.user_repository.get_many()
         if not users:
@@ -36,8 +31,8 @@ class GetAllUsersStatsInteractor:
         user_oids = [user.oid for user in users]
         all_push_ups = await self.push_up_repository.get_by_user_oids_and_date(
             user_oids=user_oids,
-            begin_date=to_moscow(begin_date),
-            end_date=to_moscow(end_date),
+            begin_date=begin_date,
+            end_date=end_date,
         )
 
         # Группируем подходы по пользователям

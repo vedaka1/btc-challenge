@@ -9,6 +9,7 @@ from btc_challenge.events.adapters.sqlite.model import EventORM, EventParticipan
 from btc_challenge.events.domain.entity import Event
 from btc_challenge.events.domain.repository import IEventRepository
 from btc_challenge.shared.errors import ObjectNotFoundError
+from btc_challenge.shared.providers import DatetimeProvider
 
 
 class EventRepository(IEventRepository):
@@ -46,14 +47,14 @@ class EventRepository(IEventRepository):
         query = select(EventORM).where(EventORM.oid == oid)
         event = await self._get_by(query)
         if not event:
-            raise ObjectNotFoundError(f"Event with oid {oid} not found")
+            raise ObjectNotFoundError(f'Event with oid {oid} not found')
         return event
 
     async def add_participant(self, event_oid: UUID, user_oid: UUID) -> None:
         participant = EventParticipantORM(
             event_oid=event_oid,
             user_oid=user_oid,
-            joined_at=datetime.now(),
+            joined_at=DatetimeProvider.provide(),
         )
         self._session.add(participant)
 
@@ -142,7 +143,7 @@ class EventRepository(IEventRepository):
 
     async def get_current_active_event(self) -> Event | None:
         """Get the current active event (if any)."""
-        now = datetime.now()
+        now = DatetimeProvider.provide()
         query = (
             select(EventORM)
             .where(
@@ -164,7 +165,7 @@ class EventRepository(IEventRepository):
 
     async def has_active_event(self) -> bool:
         """Check if there is currently an active event."""
-        now = datetime.now()
+        now = DatetimeProvider.provide()
         query = (
             select(EventORM.oid)
             .where(

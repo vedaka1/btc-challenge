@@ -3,6 +3,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from btc_challenge.shared.date import to_moscow
+from btc_challenge.shared.providers import DatetimeProvider
 
 
 @dataclass
@@ -26,8 +27,8 @@ class Event:
         title: str,
         description: str,
         start_at: datetime,
-    ) -> "Event":
-        now = datetime.now()
+    ) -> 'Event':
+        now = DatetimeProvider.provide()
         return cls(
             oid=uuid4(),
             creator_oid=creator_oid,
@@ -44,11 +45,11 @@ class Event:
 
     @property
     def day_number(self) -> int:
-        return (to_moscow(datetime.now()).date() - to_moscow(self.start_at).date()).days + 1
+        return (to_moscow(DatetimeProvider.provide()).date() - to_moscow(self.start_at).date()).days + 1
 
     @property
     def is_started(self) -> bool:
-        return datetime.now() >= self.start_at and self.start_notification_sent is True
+        return DatetimeProvider.provide() >= self.start_at and self.start_notification_sent is True
 
     @property
     def is_active(self) -> bool:
@@ -56,4 +57,4 @@ class Event:
 
     @property
     def str_info(self) -> str:
-        return f"📌 Ивент: {self.title}\n📅 День {self.day_number}"
+        return f'📌 Ивент: {self.title}\n📅 День {self.day_number}'

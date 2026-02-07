@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -8,6 +8,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.events.domain.entity import Event
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
+from btc_challenge.shared.providers import DatetimeProvider
 from btc_challenge.shared.tasks.event_daily_notification import (
     send_event_daily_notification_to_participant,
 )
@@ -29,16 +30,16 @@ async def send_pre_event_reminders(bot: Bot, event: Event) -> None:
 
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="Участвую", callback_data=f"join_event:{event.oid}")],
+                [InlineKeyboardButton(text='Участвую', callback_data=f'join_event:{event.oid}')],
             ],
         )
 
         reminder_text = (
-            f"⏰ Напоминание: ивент скоро начнется!\n\n"
-            f"📌 {event.title}\n"
-            f"📝 {event.description}\n"
-            f"🕐 Начало: {event.start_at.strftime('%d.%m.%Y %H:%M')}\n\n"
-            f"Успей записаться, до начала остался 1 час!"
+            f'⏰ Напоминание: ивент скоро начнется!\n\n'
+            f'📌 {event.title}\n'
+            f'📝 {event.description}\n'
+            f'🕐 Начало: {event.start_at.strftime("%d.%m.%Y %H:%M")}\n\n'
+            f'Успей записаться, до начала остался 1 час!'
         )
 
         # Send to verified users who are not participants
@@ -74,14 +75,14 @@ async def send_start_notification(bot: Bot, event: Event) -> None:
 
         # Create participant list
         participant_list = (
-            "\n".join([f"• @{user.username}" for user in participants]) if participants else "Нет участников"
+            '\n'.join([f'• @{user.username}' for user in participants]) if participants else 'Нет участников'
         )
 
         notification_text = (
-            f"🎬 Ивент начинается!\n\n"
-            f"📌 {event.title}\n"
-            f"📝 {event.description}\n\n"
-            f"👥 Участников: {len(participants)}\n{participant_list}"
+            f'🎬 Ивент начинается!\n\n'
+            f'📌 {event.title}\n'
+            f'📝 {event.description}\n\n'
+            f'👥 Участников: {len(participants)}\n{participant_list}'
         )
 
         # Send to all participants
@@ -110,7 +111,7 @@ async def event_notification_task(bot: Bot) -> None:
     """Background task to send event notifications."""
     while True:
         try:
-            now = datetime.now()
+            now = DatetimeProvider.provide()
             async with get_async_session() as session:
                 event_repository = EventRepository(session)
 
@@ -118,7 +119,7 @@ async def event_notification_task(bot: Bot) -> None:
                 one_hour_later = now + timedelta(hours=1)
                 one_hour_later_end = one_hour_later + timedelta(minutes=2)
                 logger.info(
-                    "Checking for events starting in 1 hour (with 2-minute window): %s - %s",
+                    'Checking for events starting in 1 hour (with 2-minute window): %s - %s',
                     one_hour_later,
                     one_hour_later_end,
                 )
@@ -132,14 +133,14 @@ async def event_notification_task(bot: Bot) -> None:
                         await send_pre_event_reminders(bot, event)
 
                 not_started_events = await event_repository.get_events_starting_now(now)
-                logger.info("Events starting now: %s", len(not_started_events))
+                logger.info('Events starting now: %s', len(not_started_events))
                 for event in not_started_events:
-                    logger.info("Sending start notification for event: %s", event.title)
+                    logger.info('Sending start notification for event: %s', event.title)
                     if not event.is_started:
                         await send_start_notification(bot, event)
             await asyncio.sleep(60)  # Check every minute
 
         except Exception as e:
             # Log error but keep the task running
-            logger.error("Error in event_notification_task: %s", e)
+            logger.error('Error in event_notification_task: %s', e)
             await asyncio.sleep(60)

@@ -10,7 +10,7 @@ from btc_challenge.push_ups.application.interactors.get_all_users_stats_by_date 
     GetAllUsersStatsByDateInteractor,
 )
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
-from btc_challenge.shared.providers import DatetimeProvider
+from btc_challenge.shared.providers import DatetimeProvider, TimeZone
 from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 
@@ -107,9 +107,9 @@ async def daily_notification_task(bot: Bot) -> None:
     """Background task to send daily report at 00:05."""
     while True:
         try:
-            # Calculate next 00:05 UTC
-            now = DatetimeProvider.provide()
-            next_notification_time = now.replace(hour=21, minute=5, second=0, microsecond=0)
+            # Calculate next 00:05
+            now = DatetimeProvider.provide(TimeZone.MOSCOW)
+            next_notification_time = now.replace(hour=0, minute=5, second=0, microsecond=0)
             if now >= next_notification_time:
                 next_notification_time += timedelta(days=1)
 

@@ -10,7 +10,7 @@ from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.push_ups.adapters.sqlite.repository import PushUpRepository
 from btc_challenge.push_ups.domain.entity import PushUp
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
-from btc_challenge.shared.providers import DatetimeProvider
+from btc_challenge.shared.providers import DatetimeProvider, TimeZone
 from btc_challenge.shared.utils import pluralize_pushups
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
 
@@ -76,9 +76,9 @@ async def event_reminder_task(bot: Bot) -> None:
     """Background task to send reminders at 17:00 UTC."""
     while True:
         try:
-            # Calculate next 17:00 UTC
-            now = DatetimeProvider.provide()
-            next_reminder_time = now.replace(hour=17, minute=0, second=0, microsecond=0)
+            # Calculate next 20:00
+            now = DatetimeProvider.provide(TimeZone.MOSCOW)
+            next_reminder_time = now.replace(hour=20, minute=0, second=0, microsecond=0)
             if now >= next_reminder_time:
                 next_reminder_time += timedelta(days=1)
 

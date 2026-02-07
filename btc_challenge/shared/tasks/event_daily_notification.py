@@ -7,7 +7,7 @@ from aiogram import Bot
 from btc_challenge.events.adapters.sqlite.repository import EventRepository
 from btc_challenge.events.domain.entity import Event
 from btc_challenge.shared.adapters.sqlite.session import get_async_session
-from btc_challenge.shared.providers import DatetimeProvider
+from btc_challenge.shared.providers import DatetimeProvider, TimeZone
 from btc_challenge.shared.tasks.send_to_groups import send_notification_to_groups
 from btc_challenge.shared.utils import create_event_notification_text
 from btc_challenge.users.adapters.sqlite.repository import UserRepository
@@ -59,9 +59,9 @@ async def event_daily_notification_task(bot: Bot) -> None:
     """Background task to send daily notifications to event participants at 5:00."""
     while True:
         try:
-            # Calculate next 5:00 UTC
-            now = DatetimeProvider.provide()
-            next_notification_time = now.replace(hour=5, minute=0, second=0, microsecond=0)
+            # Calculate next 8:00
+            now = DatetimeProvider.provide(TimeZone.MOSCOW)
+            next_notification_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
             if now >= next_notification_time:
                 next_notification_time += timedelta(days=1)
 
